@@ -33,4 +33,13 @@ public class VideosController(IVideoService videoService) : ControllerBase
             ? Ok(new { data = result.Data, success = true })
             : NotFound(new { error = result.Error, success = false });
     }
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateVideoRequest request, CancellationToken ct)
+    {
+        var result = await videoService.UpdateAsync(id, request, ct);
+        return result.Success
+            ? Ok(new { data = result.Data, success = true })
+            : NotFound(new { error = result.Error, success = false });
+    }
 }

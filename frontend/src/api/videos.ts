@@ -1,6 +1,13 @@
 import { api } from './client';
 import type { ApiResponse } from './client';
 
+export interface Actor {
+  id: number;
+  name: string;
+  role: string | null;
+  order: number;
+}
+
 export interface VideoFile {
   id: number;
   libraryId: number;
@@ -15,6 +22,7 @@ export interface VideoFile {
   plot: string | null;
   studioName: string | null;
   scannedAt: string;
+  actors: Actor[] | null;
 }
 
 export interface PagedResult<T> {
@@ -34,9 +42,19 @@ export interface VideoFilter {
   page_size?: number;
 }
 
+export interface UpdateVideoRequest {
+  title: string | null;
+  originalTitle: string | null;
+  year: number | null;
+  plot: string | null;
+  studioName: string | null;
+}
+
 export const videosApi = {
   getAll: (filter: VideoFilter = {}) =>
     api.get<ApiResponse<PagedResult<VideoFile>>>('/videos', { params: filter }).then(r => r.data),
   getById: (id: number) =>
     api.get<ApiResponse<VideoFile>>(`/videos/${id}`).then(r => r.data),
+  update: (id: number, data: UpdateVideoRequest) =>
+    api.put<ApiResponse<VideoFile>>(`/videos/${id}`, data).then(r => r.data),
 };

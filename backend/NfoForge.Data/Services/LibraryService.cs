@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NfoForge.Core.Interfaces;
 using NfoForge.Core.Models;
 using NfoForge.Data.Entities;
@@ -6,7 +7,11 @@ using NfoForge.Data.Utilities;
 
 namespace NfoForge.Data.Services;
 
-public class LibraryService(AppDbContext db) : ILibraryService
+public class LibraryService(
+    AppDbContext db,
+    FileSystemScanner scanner,
+    INfoParser nfoParser,
+    ILogger<LibraryService> logger) : ILibraryService
 {
     public async Task<Result<IReadOnlyList<LibraryDto>>> GetAllAsync(CancellationToken ct = default)
     {
@@ -32,6 +37,7 @@ public class LibraryService(AppDbContext db) : ILibraryService
         var lib = new Library { Name = request.Name, Path = request.Path };
         db.Libraries.Add(lib);
         await db.SaveChangesAsync(ct);
+        logger.LogInformation("Library created: {Name} at {Path}", lib.Name, lib.Path);
         return Result<LibraryDto>.Ok(new LibraryDto(lib.Id, lib.Name, lib.Path, lib.CreatedAt));
     }
 
@@ -41,6 +47,7 @@ public class LibraryService(AppDbContext db) : ILibraryService
         if (lib is null) return Result.Fail("Library not found");
         db.Libraries.Remove(lib);
         await db.SaveChangesAsync(ct);
+        logger.LogInformation("Library deleted: {Id} ({Name})", id, lib.Name);
         return Result.Ok();
     }
 
@@ -53,19 +60,24 @@ public class LibraryService(AppDbContext db) : ILibraryService
         if (!Directory.Exists(library.Path))
             return Result<string>.Fail($"Library path not found: {library.Path}");
 
+        logger.LogInformation("Scan started: library {Id} ({Name}) at {Path}", id, library.Name, library.Path);
+
         try
         {
-            var scanner = new FileSystemScanner();
-            var videoFiles = await scanner.FindVideoFilesRecursiveAsync(library.Path, ct);
+            var videoFiles = (await scanner.FindVideoFilesRecursiveAsync(library.Path, ct)).ToList();
 
-            // Get existing file paths to detect duplicates
             var existingPaths = await db.VideoFiles
                 .Where(v => v.LibraryId == id)
                 .Select(v => v.FilePath)
                 .ToHashSetAsync(ct);
 
+            // Pre-load all studios and actors for upsert lookups
+            var studioCache = await db.Studios.ToDictionaryAsync(s => s.Name, ct);
+            var actorCache = await db.Actors.ToDictionaryAsync(a => a.Name, ct);
+
             var newEntities = new List<VideoFile>();
             int skipped = 0;
+            int nfoParsed = 0;
 
             foreach (var file in videoFiles)
             {
@@ -73,14 +85,13 @@ public class LibraryService(AppDbContext db) : ILibraryService
 
                 var fullPath = Path.GetFullPath(file.FullName);
 
-                // Skip if this path already exists
                 if (existingPaths.Contains(fullPath))
                 {
                     skipped++;
                     continue;
                 }
 
-                newEntities.Add(new VideoFile
+                var videoFile = new VideoFile
                 {
                     LibraryId = id,
                     FileName = Path.GetFileName(fullPath),
@@ -89,24 +100,73 @@ public class LibraryService(AppDbContext db) : ILibraryService
                     HasNfo = scanner.HasNfoFile(fullPath),
                     HasPoster = scanner.HasPosterFile(fullPath),
                     ScannedAt = DateTime.UtcNow
-                });
+                };
+
+                // Parse NFO if present
+                if (videoFile.HasNfo)
+                {
+                    var nfoPath = $"{fullPath}.nfo";
+                    var nfoData = await nfoParser.ParseAsync(nfoPath, ct);
+                    if (nfoData is not null)
+                    {
+                        videoFile.Title = nfoData.Title;
+                        videoFile.OriginalTitle = nfoData.OriginalTitle;
+                        videoFile.Year = nfoData.Year;
+                        videoFile.Plot = nfoData.Plot;
+                        videoFile.NfoUpdatedAt = DateTime.UtcNow;
+                        nfoParsed++;
+
+                        // Resolve studio
+                        if (nfoData.Studio is not null)
+                        {
+                            if (!studioCache.TryGetValue(nfoData.Studio, out var studio))
+                            {
+                                studio = new Studio { Name = nfoData.Studio };
+                                db.Studios.Add(studio);
+                                studioCache[nfoData.Studio] = studio;
+                            }
+                            videoFile.Studio = studio;
+                        }
+
+                        // Resolve actors
+                        foreach (var nfoActor in nfoData.Actors)
+                        {
+                            if (!actorCache.TryGetValue(nfoActor.Name, out var actor))
+                            {
+                                actor = new Actor { Name = nfoActor.Name };
+                                db.Actors.Add(actor);
+                                actorCache[nfoActor.Name] = actor;
+                            }
+                            videoFile.VideoActors.Add(new VideoActor
+                            {
+                                Actor = actor,
+                                Role = nfoActor.Role,
+                                Order = nfoActor.Order
+                            });
+                        }
+                    }
+                }
+
+                newEntities.Add(videoFile);
             }
 
-            // Batch insert new video files
             if (newEntities.Count > 0)
                 await db.VideoFiles.AddRangeAsync(newEntities, ct);
 
             await db.SaveChangesAsync(ct);
 
-            var summary = $"Scanned {videoFiles.Count()} files: added {newEntities.Count}, skipped {skipped}";
+            var summary = $"Scanned {videoFiles.Count} files: added {newEntities.Count} (NFO parsed: {nfoParsed}), skipped {skipped}";
+            logger.LogInformation("Scan completed: library {Id} — {Summary}", id, summary);
             return Result<string>.Ok(summary);
         }
         catch (OperationCanceledException)
         {
+            logger.LogWarning("Scan cancelled: library {Id}", id);
             return Result<string>.Fail("Scan cancelled");
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Scan failed: library {Id}", id);
             return Result<string>.Fail($"Scan failed: {ex.Message}");
         }
     }
