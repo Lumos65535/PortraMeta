@@ -138,15 +138,17 @@ public class LibraryService(
                 }
             }
 
-            var existingPaths = await db.VideoFiles
+            // Load full entities (with actors) for existing files so we can update them
+            var existingFiles = await db.VideoFiles
                 .Where(v => v.LibraryId == id)
-                .Select(v => v.FilePath)
-                .ToHashSetAsync(ct);
+                .Include(v => v.VideoActors)
+                .ToDictionaryAsync(v => v.FilePath, ct);
 
             var studioCache = await db.Studios.ToDictionaryAsync(s => s.Name, ct);
             var actorCache = await db.Actors.ToDictionaryAsync(a => a.Name, ct);
 
             var newEntities = new List<VideoFile>();
+            int updated = 0;
             int skipped = 0;
             int nfoParsed = 0;
 
@@ -155,28 +157,91 @@ public class LibraryService(
                 ct.ThrowIfCancellationRequested();
 
                 var fullPath = Path.GetFullPath(file.FullName);
+                bool hasNfo = scanner.HasNfoFile(fullPath);
+                bool hasPoster = scanner.HasPosterFile(fullPath);
+                bool hasFanart = scanner.HasFanartFile(fullPath);
 
-                if (existingPaths.Contains(fullPath))
+                if (existingFiles.TryGetValue(fullPath, out var existing))
                 {
-                    skipped++;
+                    // Re-check file flags; parse NFO if it was missing or metadata not yet populated
+                    bool needsNfoParse = hasNfo && (!existing.HasNfo || existing.Title is null);
+                    bool flagChanged = existing.HasNfo != hasNfo
+                        || existing.HasPoster != hasPoster
+                        || existing.HasFanart != hasFanart;
+
+                    existing.HasNfo = hasNfo;
+                    existing.HasPoster = hasPoster;
+                    existing.HasFanart = hasFanart;
+
+                    if (needsNfoParse)
+                    {
+                        var nfoData = await nfoParser.ParseAsync(FileSystemScanner.NfoPath(fullPath), ct);
+                        if (nfoData is not null)
+                        {
+                            existing.Title = nfoData.Title;
+                            existing.OriginalTitle = nfoData.OriginalTitle;
+                            existing.Year = nfoData.Year;
+                            existing.Plot = nfoData.Plot;
+                            existing.NfoUpdatedAt = DateTime.UtcNow;
+                            nfoParsed++;
+
+                            if (nfoData.Studio is not null)
+                            {
+                                if (!studioCache.TryGetValue(nfoData.Studio, out var studio))
+                                {
+                                    studio = new Studio { Name = nfoData.Studio };
+                                    db.Studios.Add(studio);
+                                    studioCache[nfoData.Studio] = studio;
+                                }
+                                existing.Studio = studio;
+                            }
+
+                            // Add actors only if none exist yet (avoid duplicates on rescan)
+                            if (!existing.VideoActors.Any())
+                            {
+                                foreach (var nfoActor in nfoData.Actors)
+                                {
+                                    if (!actorCache.TryGetValue(nfoActor.Name, out var actor))
+                                    {
+                                        actor = new Actor { Name = nfoActor.Name };
+                                        db.Actors.Add(actor);
+                                        actorCache[nfoActor.Name] = actor;
+                                    }
+                                    existing.VideoActors.Add(new VideoActor
+                                    {
+                                        Actor = actor,
+                                        Role = nfoActor.Role,
+                                        Order = nfoActor.Order
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    if (flagChanged || needsNfoParse)
+                        updated++;
+                    else
+                        skipped++;
+
                     continue;
                 }
 
+                // New file — insert
                 var videoFile = new VideoFile
                 {
                     LibraryId = id,
                     FileName = Path.GetFileName(fullPath),
                     FilePath = fullPath,
                     FileSizeBytes = file.Length,
-                    HasNfo = scanner.HasNfoFile(fullPath),
-                    HasPoster = scanner.HasPosterFile(fullPath),
+                    HasNfo = hasNfo,
+                    HasPoster = hasPoster,
+                    HasFanart = hasFanart,
                     ScannedAt = DateTime.UtcNow
                 };
 
                 if (videoFile.HasNfo)
                 {
-                    var nfoPath = Path.ChangeExtension(fullPath, ".nfo");
-                    var nfoData = await nfoParser.ParseAsync(nfoPath, ct);
+                    var nfoData = await nfoParser.ParseAsync(FileSystemScanner.NfoPath(fullPath), ct);
                     if (nfoData is not null)
                     {
                         videoFile.Title = nfoData.Title;
@@ -223,7 +288,7 @@ public class LibraryService(
 
             await db.SaveChangesAsync(ct);
 
-            var summary = $"Scanned {videoFiles.Count} files: added {newEntities.Count} (NFO parsed: {nfoParsed}), skipped {skipped}";
+            var summary = $"Scanned {videoFiles.Count} files: added {newEntities.Count}, updated {updated}, skipped {skipped} (NFO parsed: {nfoParsed})";
             if (excludedPaths.Count > 0)
                 summary += $", excluded {excludedPaths.Count} folder(s)";
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NfoForge.Core.Interfaces;
 using NfoForge.Core.Models;
 using NfoForge.Data.Entities;
+using NfoForge.Data.Utilities;
 
 namespace NfoForge.Data.Services;
 
@@ -31,7 +32,7 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             .Take(pageSize)
             .Select(v => new VideoFileDto(
                 v.Id, v.LibraryId, v.FileName, v.FilePath, v.FileSizeBytes,
-                v.HasNfo, v.HasPoster, v.Title, v.OriginalTitle, v.Year, v.Plot,
+                v.HasNfo, v.HasPoster, v.HasFanart, v.Title, v.OriginalTitle, v.Year, v.Plot,
                 v.Studio != null ? v.Studio.Name : null, v.ScannedAt, null))
             .ToListAsync(ct);
 
@@ -81,7 +82,6 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         v.Year = request.Year;
         v.Plot = request.Plot;
 
-        // Resolve studio
         if (request.StudioName is not null)
         {
             var studio = await db.Studios.FirstOrDefaultAsync(s => s.Name == request.StudioName, ct)
@@ -98,13 +98,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         v.NfoUpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
-        // Write NFO file
         var dto = ToDto(v);
-        // Standard naming: video.mp4 → video.nfo
-        var nfoPath = Path.ChangeExtension(v.FilePath, ".nfo");
-        await nfoService.WriteAsync(nfoPath, dto, ct);
+        await nfoService.WriteAsync(FileSystemScanner.NfoPath(v.FilePath), dto, ct);
 
-        // Update HasNfo flag if file was just created
         if (!v.HasNfo)
         {
             v.HasNfo = true;
@@ -125,7 +121,7 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
         return new VideoFileDto(
             v.Id, v.LibraryId, v.FileName, v.FilePath, v.FileSizeBytes,
-            v.HasNfo, v.HasPoster, v.Title, v.OriginalTitle, v.Year, v.Plot,
+            v.HasNfo, v.HasPoster, v.HasFanart, v.Title, v.OriginalTitle, v.Year, v.Plot,
             v.Studio?.Name, v.ScannedAt, actors);
     }
 }

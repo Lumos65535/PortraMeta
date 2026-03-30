@@ -173,6 +173,10 @@ export default function VideoDetailPage() {
                 <Typography variant="body2" color="text.secondary">海报</Typography>
                 <Chip label={video.hasPoster ? '✓ 存在' : '✗ 缺失'} color={video.hasPoster ? 'success' : 'default'} size="small" />
               </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <Typography variant="body2" color="text.secondary">Fanart</Typography>
+                <Chip label={video.hasFanart ? '✓ 存在' : '✗ 缺失'} color={video.hasFanart ? 'success' : 'default'} size="small" />
+              </Grid>
             </Grid>
           </Paper>
         </Grid>

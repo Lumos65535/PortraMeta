@@ -12,6 +12,7 @@ public class VideoFile
 
     public bool HasNfo { get; set; }
     public bool HasPoster { get; set; }
+    public bool HasFanart { get; set; }
 
     // NFO metadata (cached from NFO file)
     public string? Title { get; set; }

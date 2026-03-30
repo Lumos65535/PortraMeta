@@ -12,6 +12,7 @@ public record VideoFileDto(
     long FileSizeBytes,
     bool HasNfo,
     bool HasPoster,
+    bool HasFanart,
     string? Title,
     string? OriginalTitle,
     int? Year,

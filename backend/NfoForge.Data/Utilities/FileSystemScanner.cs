@@ -4,6 +4,26 @@ namespace NfoForge.Data.Utilities;
 
 public class FileSystemScanner
 {
+    // ── Static path helpers ────────────────────────────────────────────────
+
+    /// <summary>video.mp4 → video.nfo</summary>
+    public static string NfoPath(string videoFilePath) =>
+        Path.ChangeExtension(videoFilePath, ".nfo");
+
+    /// <summary>video.mp4 → video-poster.jpg</summary>
+    public static string PosterPath(string videoFilePath) =>
+        Path.Combine(
+            Path.GetDirectoryName(videoFilePath)!,
+            Path.GetFileNameWithoutExtension(videoFilePath) + "-poster.jpg");
+
+    /// <summary>video.mp4 → video-fanart.jpg</summary>
+    public static string FanartPath(string videoFilePath) =>
+        Path.Combine(
+            Path.GetDirectoryName(videoFilePath)!,
+            Path.GetFileNameWithoutExtension(videoFilePath) + "-fanart.jpg");
+
+    // ── Instance methods ───────────────────────────────────────────────────
+
     public async Task<IEnumerable<FileInfo>> FindVideoFilesRecursiveAsync(
         string libraryPath,
         IReadOnlySet<string>? excludedPaths = null,
@@ -40,16 +60,10 @@ public class FileSystemScanner
                 {
                     await ScanDirectoryRecursiveAsync(subdir.FullName, videos, excludedPaths, ct);
                 }
-                catch (UnauthorizedAccessException)
-                {
-                    // Silently skip directories we can't access
-                }
+                catch (UnauthorizedAccessException) { }
             }
         }
-        catch (UnauthorizedAccessException)
-        {
-            // Silently continue if we can't access this directory
-        }
+        catch (UnauthorizedAccessException) { }
     }
 
     /// <summary>Returns immediate subdirectory paths under the given root.</summary>
@@ -68,17 +82,7 @@ public class FileSystemScanner
         }
     }
 
-    public bool HasNfoFile(string videoFilePath)
-    {
-        // Standard naming: video.mp4 → video.nfo (not video.mp4.nfo)
-        var nfoPath = Path.ChangeExtension(videoFilePath, ".nfo");
-        return File.Exists(nfoPath);
-    }
-
-    public bool HasPosterFile(string videoFilePath)
-    {
-        // Standard naming: video.mp4 → video.poster.jpg (not video.mp4.poster.jpg)
-        var posterPath = Path.ChangeExtension(videoFilePath, ".poster.jpg");
-        return File.Exists(posterPath);
-    }
+    public bool HasNfoFile(string videoFilePath) => File.Exists(NfoPath(videoFilePath));
+    public bool HasPosterFile(string videoFilePath) => File.Exists(PosterPath(videoFilePath));
+    public bool HasFanartFile(string videoFilePath) => File.Exists(FanartPath(videoFilePath));
 }

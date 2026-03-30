@@ -16,6 +16,7 @@ export interface VideoFile {
   fileSizeBytes: number;
   hasNfo: boolean;
   hasPoster: boolean;
+  hasFanart: boolean;
   title: string | null;
   originalTitle: string | null;
   year: number | null;
