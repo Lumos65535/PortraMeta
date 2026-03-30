@@ -1,0 +1,96 @@
+{
+  "nav": {
+    "videos": "视频文件",
+    "libraries": "媒体库",
+    "settings": "设置"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "add": "添加",
+    "name": "名称",
+    "path": "路径",
+    "actions": "操作",
+    "edit": "编辑"
+  },
+  "videos": {
+    "title": "视频文件",
+    "titleWithCount": "视频文件 ({{count}})",
+    "search": "搜索",
+    "empty": "暂无视频文件，请先添加媒体库并扫描",
+    "columns": {
+      "filename": "文件名",
+      "title": "标题",
+      "year": "年份",
+      "studio": "厂牌",
+      "nfo": "NFO",
+      "poster": "海报"
+    }
+  },
+  "videoDetail": {
+    "backToList": "返回列表",
+    "save": "保存",
+    "cancel": "取消",
+    "edit": "编辑",
+    "fileInfo": "文件信息",
+    "metadata": "元数据",
+    "actors": "演员",
+    "noActors": "暂无演员信息",
+    "exists": "✓ 存在",
+    "missing": "✗ 缺失",
+    "saveSuccess": "保存成功",
+    "saveFailed": "保存失败",
+    "loadFailed": "加载失败",
+    "fields": {
+      "path": "路径",
+      "size": "大小",
+      "scannedAt": "扫描时间",
+      "nfo": "NFO",
+      "poster": "海报",
+      "fanart": "Fanart",
+      "title": "标题",
+      "year": "年份",
+      "originalTitle": "原标题",
+      "studio": "厂牌",
+      "plot": "简介"
+    }
+  },
+  "libraries": {
+    "title": "媒体库",
+    "addButton": "添加媒体库",
+    "empty": "暂无媒体库，请添加",
+    "scan": "扫描",
+    "moreOptions": "更多选项",
+    "scanning": "正在扫描「{{name}}」，请稍候，扫描完成前请勿离开此页面…",
+    "excludeFolders": "排除文件夹",
+    "excludeSubtitle": "{{name}} — 勾选的文件夹将在扫描时被跳过",
+    "noSubfolders": "该媒体库根目录下没有子文件夹",
+    "excludedCount": "已排除 {{count}} 个文件夹",
+    "noExcluded": "未排除任何文件夹",
+    "excludeSaved": "排除文件夹设置已保存",
+    "deleteLibrary": "删除媒体库",
+    "addDialog": {
+      "title": "添加媒体库",
+      "pathPlaceholder": "/path/to/media"
+    },
+    "addSuccess": "媒体库 \"{{name}}\" 添加成功",
+    "addFailed": "添加失败",
+    "deleteSuccess": "媒体库 \"{{name}}\" 已删除",
+    "scanFailed": "扫描失败",
+    "columns": {
+      "name": "名称",
+      "path": "路径",
+      "createdAt": "创建时间",
+      "actions": "操作"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "language": {
+      "title": "语言",
+      "subtitle": "选择界面显示语言",
+      "zh": "中文",
+      "en": "English"
+    }
+  }
+}

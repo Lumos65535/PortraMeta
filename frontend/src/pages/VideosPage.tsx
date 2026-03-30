@@ -4,6 +4,7 @@ import {
   Box, Chip, CircularProgress, Pagination, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
 import type { PagedResult, VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
@@ -13,6 +14,7 @@ const PAGE_SIZE = 50;
 export default function VideosPage() {
   const notify = useNotify();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [result, setResult] = useState<PagedResult<VideoFile> | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -57,10 +59,10 @@ export default function VideosPage() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5">
-          视频文件 {result && `(${result.total})`}
+          {result ? t('videos.titleWithCount', { count: result.total }) : t('videos.title')}
         </Typography>
         <TextField
-          label="搜索"
+          label={t('videos.search')}
           size="small"
           value={search}
           onChange={e => handleSearchChange(e.target.value)}
@@ -77,12 +79,12 @@ export default function VideosPage() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>文件名</TableCell>
-                  <TableCell>标题</TableCell>
-                  <TableCell>年份</TableCell>
-                  <TableCell>厂牌</TableCell>
-                  <TableCell>NFO</TableCell>
-                  <TableCell>海报</TableCell>
+                  <TableCell>{t('videos.columns.filename')}</TableCell>
+                  <TableCell>{t('videos.columns.title')}</TableCell>
+                  <TableCell>{t('videos.columns.year')}</TableCell>
+                  <TableCell>{t('videos.columns.studio')}</TableCell>
+                  <TableCell>{t('videos.columns.nfo')}</TableCell>
+                  <TableCell>{t('videos.columns.poster')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -107,7 +109,7 @@ export default function VideosPage() {
                 ))}
                 {result?.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">暂无视频文件，请先添加媒体库并扫描</TableCell>
+                    <TableCell colSpan={6} align="center">{t('videos.empty')}</TableCell>
                   </TableRow>
                 )}
               </TableBody>

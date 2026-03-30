@@ -1,0 +1,96 @@
+{
+  "nav": {
+    "videos": "Videos",
+    "libraries": "Libraries",
+    "settings": "Settings"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "add": "Add",
+    "name": "Name",
+    "path": "Path",
+    "actions": "Actions",
+    "edit": "Edit"
+  },
+  "videos": {
+    "title": "Videos",
+    "titleWithCount": "Videos ({{count}})",
+    "search": "Search",
+    "empty": "No videos found. Please add a library and scan.",
+    "columns": {
+      "filename": "Filename",
+      "title": "Title",
+      "year": "Year",
+      "studio": "Studio",
+      "nfo": "NFO",
+      "poster": "Poster"
+    }
+  },
+  "videoDetail": {
+    "backToList": "Back to List",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "fileInfo": "File Info",
+    "metadata": "Metadata",
+    "actors": "Actors",
+    "noActors": "No actor information",
+    "exists": "✓ Exists",
+    "missing": "✗ Missing",
+    "saveSuccess": "Saved successfully",
+    "saveFailed": "Save failed",
+    "loadFailed": "Load failed",
+    "fields": {
+      "path": "Path",
+      "size": "Size",
+      "scannedAt": "Scanned At",
+      "nfo": "NFO",
+      "poster": "Poster",
+      "fanart": "Fanart",
+      "title": "Title",
+      "year": "Year",
+      "originalTitle": "Original Title",
+      "studio": "Studio",
+      "plot": "Plot"
+    }
+  },
+  "libraries": {
+    "title": "Libraries",
+    "addButton": "Add Library",
+    "empty": "No libraries yet. Please add one.",
+    "scan": "Scan",
+    "moreOptions": "More options",
+    "scanning": "Scanning \"{{name}}\", please wait. Do not leave this page until the scan is complete…",
+    "excludeFolders": "Exclude Folders",
+    "excludeSubtitle": "{{name}} — checked folders will be skipped during scan",
+    "noSubfolders": "No subfolders found in this library's root directory",
+    "excludedCount": "{{count}} folder(s) excluded",
+    "noExcluded": "No folders excluded",
+    "excludeSaved": "Excluded folders saved",
+    "deleteLibrary": "Delete Library",
+    "addDialog": {
+      "title": "Add Library",
+      "pathPlaceholder": "/path/to/media"
+    },
+    "addSuccess": "Library \"{{name}}\" added successfully",
+    "addFailed": "Failed to add library",
+    "deleteSuccess": "Library \"{{name}}\" deleted",
+    "scanFailed": "Scan failed",
+    "columns": {
+      "name": "Name",
+      "path": "Path",
+      "createdAt": "Created At",
+      "actions": "Actions"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": {
+      "title": "Language",
+      "subtitle": "Select display language",
+      "zh": "中文",
+      "en": "English"
+    }
+  }
+}

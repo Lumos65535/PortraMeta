@@ -8,6 +8,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
 import type { VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
@@ -41,6 +42,7 @@ export default function VideoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const notify = useNotify();
+  const { t } = useTranslation();
   const [video, setVideo] = useState<VideoFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -55,7 +57,7 @@ export default function VideoDetailPage() {
           setVideo(res.data);
           setForm(toEditState(res.data));
         } else {
-          notify(res.error ?? '加载失败', 'error');
+          notify(res.error ?? t('videoDetail.loadFailed'), 'error');
         }
       })
       .catch(err => notify((err as Error).message, 'error'))
@@ -87,9 +89,9 @@ export default function VideoDetailPage() {
         setVideo(res.data);
         setForm(toEditState(res.data));
         setEditing(false);
-        notify('保存成功', 'success');
+        notify(t('videoDetail.saveSuccess'), 'success');
       } else {
-        notify(res.error ?? '保存失败', 'error');
+        notify(res.error ?? t('videoDetail.saveFailed'), 'error');
       }
     } catch (err) {
       notify((err as Error).message, 'error');
@@ -120,14 +122,14 @@ export default function VideoDetailPage() {
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/videos')}>
-          返回列表
+          {t('videoDetail.backToList')}
         </Button>
         <Typography variant="h5" sx={{ flexGrow: 1 }}>
           {video.title ?? video.fileName}
         </Typography>
         {!editing ? (
           <Button variant="contained" startIcon={<EditIcon />} onClick={handleEdit}>
-            编辑
+            {t('videoDetail.edit')}
           </Button>
         ) : (
           <Stack direction="row" spacing={1}>
@@ -137,10 +139,10 @@ export default function VideoDetailPage() {
               onClick={handleSave}
               disabled={saving}
             >
-              保存
+              {t('videoDetail.save')}
             </Button>
             <Button startIcon={<CancelIcon />} onClick={handleCancel} disabled={saving}>
-              取消
+              {t('videoDetail.cancel')}
             </Button>
           </Stack>
         )}
@@ -150,32 +152,46 @@ export default function VideoDetailPage() {
         {/* File info */}
         <Grid size={12}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>文件信息</Typography>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('videoDetail.fileInfo')}
+            </Typography>
             <Divider sx={{ mb: 1.5 }} />
             <Grid container spacing={1}>
               <Grid size={12}>
-                <Typography variant="body2" color="text.secondary">路径</Typography>
+                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.path')}</Typography>
                 <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>{video.filePath}</Typography>
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">大小</Typography>
+                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.size')}</Typography>
                 <Typography variant="body2">{formatBytes(video.fileSizeBytes)}</Typography>
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">扫描时间</Typography>
+                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.scannedAt')}</Typography>
                 <Typography variant="body2">{new Date(video.scannedAt).toLocaleString()}</Typography>
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">NFO</Typography>
-                <Chip label={video.hasNfo ? '✓ 存在' : '✗ 缺失'} color={video.hasNfo ? 'success' : 'default'} size="small" />
+                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.nfo')}</Typography>
+                <Chip
+                  label={video.hasNfo ? t('videoDetail.exists') : t('videoDetail.missing')}
+                  color={video.hasNfo ? 'success' : 'default'}
+                  size="small"
+                />
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">海报</Typography>
-                <Chip label={video.hasPoster ? '✓ 存在' : '✗ 缺失'} color={video.hasPoster ? 'success' : 'default'} size="small" />
+                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.poster')}</Typography>
+                <Chip
+                  label={video.hasPoster ? t('videoDetail.exists') : t('videoDetail.missing')}
+                  color={video.hasPoster ? 'success' : 'default'}
+                  size="small"
+                />
               </Grid>
               <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">Fanart</Typography>
-                <Chip label={video.hasFanart ? '✓ 存在' : '✗ 缺失'} color={video.hasFanart ? 'success' : 'default'} size="small" />
+                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.fanart')}</Typography>
+                <Chip
+                  label={video.hasFanart ? t('videoDetail.exists') : t('videoDetail.missing')}
+                  color={video.hasFanart ? 'success' : 'default'}
+                  size="small"
+                />
               </Grid>
             </Grid>
           </Paper>
@@ -184,46 +200,48 @@ export default function VideoDetailPage() {
         {/* Metadata */}
         <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>元数据</Typography>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('videoDetail.metadata')}
+            </Typography>
             <Divider sx={{ mb: 2 }} />
             {editing && form ? (
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 8 }}>
-                  <TextField label="标题" fullWidth size="small" {...field('title')} />
+                  <TextField label={t('videoDetail.fields.title')} fullWidth size="small" {...field('title')} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <TextField label="年份" fullWidth size="small" type="number" {...field('year')} />
+                  <TextField label={t('videoDetail.fields.year')} fullWidth size="small" type="number" {...field('year')} />
                 </Grid>
                 <Grid size={12}>
-                  <TextField label="原标题" fullWidth size="small" {...field('originalTitle')} />
+                  <TextField label={t('videoDetail.fields.originalTitle')} fullWidth size="small" {...field('originalTitle')} />
                 </Grid>
                 <Grid size={12}>
-                  <TextField label="厂牌" fullWidth size="small" {...field('studioName')} />
+                  <TextField label={t('videoDetail.fields.studio')} fullWidth size="small" {...field('studioName')} />
                 </Grid>
                 <Grid size={12}>
-                  <TextField label="简介" fullWidth multiline rows={4} {...field('plot')} />
+                  <TextField label={t('videoDetail.fields.plot')} fullWidth multiline rows={4} {...field('plot')} />
                 </Grid>
               </Grid>
             ) : (
               <Grid container spacing={1.5}>
                 <Grid size={{ xs: 12, sm: 8 }}>
-                  <Typography variant="body2" color="text.secondary">标题</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.title')}</Typography>
                   <Typography>{video.title ?? '—'}</Typography>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <Typography variant="body2" color="text.secondary">年份</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.year')}</Typography>
                   <Typography>{video.year ?? '—'}</Typography>
                 </Grid>
                 <Grid size={12}>
-                  <Typography variant="body2" color="text.secondary">原标题</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.originalTitle')}</Typography>
                   <Typography>{video.originalTitle ?? '—'}</Typography>
                 </Grid>
                 <Grid size={12}>
-                  <Typography variant="body2" color="text.secondary">厂牌</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.studio')}</Typography>
                   <Typography>{video.studioName ?? '—'}</Typography>
                 </Grid>
                 <Grid size={12}>
-                  <Typography variant="body2" color="text.secondary">简介</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.plot')}</Typography>
                   <Typography sx={{ whiteSpace: 'pre-wrap' }}>{video.plot ?? '—'}</Typography>
                 </Grid>
               </Grid>
@@ -234,7 +252,9 @@ export default function VideoDetailPage() {
         {/* Actors */}
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>演员</Typography>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('videoDetail.actors')}
+            </Typography>
             <Divider sx={{ mb: 1.5 }} />
             {video.actors && video.actors.length > 0 ? (
               <Stack spacing={1}>
@@ -248,7 +268,7 @@ export default function VideoDetailPage() {
                 ))}
               </Stack>
             ) : (
-              <Typography variant="body2" color="text.secondary">暂无演员信息</Typography>
+              <Typography variant="body2" color="text.secondary">{t('videoDetail.noActors')}</Typography>
             )}
           </Paper>
         </Grid>

@@ -10,6 +10,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SyncIcon from '@mui/icons-material/Sync';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FolderOffIcon from '@mui/icons-material/FolderOff';
+import { useTranslation } from 'react-i18next';
 import { librariesApi } from '../api/libraries';
 import type { Library } from '../api/libraries';
 import { useNotify } from '../contexts/NotifyContext';
@@ -19,10 +20,12 @@ import { useNotify } from '../contexts/NotifyContext';
 interface ExcludedFoldersDialogProps {
   library: Library;
   onClose: () => void;
+  onSaved: () => void;
 }
 
-function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps) {
+function ExcludedFoldersDialog({ library, onClose, onSaved }: ExcludedFoldersDialogProps) {
   const notify = useNotify();
+  const { t } = useTranslation();
   const [subdirs, setSubdirs] = useState<string[]>([]);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [loadingDirs, setLoadingDirs] = useState(true);
@@ -53,8 +56,9 @@ function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps)
     setSaving(true);
     try {
       await librariesApi.setExcludedFolders(library.id, [...excluded]);
-      notify('排除文件夹设置已保存', 'success');
+      notify(t('libraries.excludeSaved'), 'success');
       onClose();
+      onSaved();
     } catch (err) {
       notify((err as Error).message, 'error');
     } finally {
@@ -71,9 +75,9 @@ function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps)
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
-        排除文件夹
+        {t('libraries.excludeFolders')}
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {library.name} — 勾选的文件夹将在扫描时被跳过
+          {t('libraries.excludeSubtitle', { name: library.name })}
         </Typography>
       </DialogTitle>
       <Divider />
@@ -84,7 +88,7 @@ function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps)
           </Box>
         ) : subdirs.length === 0 ? (
           <Typography color="text.secondary" sx={{ p: 3 }}>
-            该媒体库根目录下没有子文件夹
+            {t('libraries.noSubfolders')}
           </Typography>
         ) : (
           <Box>
@@ -113,16 +117,18 @@ function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps)
       </DialogContent>
       <DialogActions>
         <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1, pl: 1 }}>
-          {excluded.size > 0 ? `已排除 ${excluded.size} 个文件夹` : '未排除任何文件夹'}
+          {excluded.size > 0
+            ? t('libraries.excludedCount', { count: excluded.size })
+            : t('libraries.noExcluded')}
         </Typography>
-        <Button onClick={onClose} disabled={saving}>取消</Button>
+        <Button onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
         <Button
           onClick={handleSave}
           variant="contained"
           disabled={saving || loadingDirs}
           startIcon={saving ? <CircularProgress size={16} /> : null}
         >
-          保存
+          {t('common.save')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -133,6 +139,7 @@ function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps)
 
 export default function LibrariesPage() {
   const notify = useNotify();
+  const { t } = useTranslation();
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -171,13 +178,13 @@ export default function LibrariesPage() {
     try {
       const res = await librariesApi.create(name.trim(), path.trim());
       if (res.success) {
-        notify(`媒体库 "${res.data.name}" 添加成功`, 'success');
+        notify(t('libraries.addSuccess', { name: res.data.name }), 'success');
         setCreateOpen(false);
         setName('');
         setPath('');
         await load();
       } else {
-        notify(res.error ?? '添加失败', 'error');
+        notify(res.error ?? t('libraries.addFailed'), 'error');
       }
     } catch (err) {
       notify((err as Error).message, 'error');
@@ -190,7 +197,7 @@ export default function LibrariesPage() {
     closeMenu();
     try {
       await librariesApi.delete(lib.id);
-      notify(`媒体库 "${lib.name}" 已删除`, 'success');
+      notify(t('libraries.deleteSuccess', { name: lib.name }), 'success');
       await load();
     } catch (err) {
       notify((err as Error).message, 'error');
@@ -204,7 +211,7 @@ export default function LibrariesPage() {
       if (res.success) {
         notify(res.data, 'success');
       } else {
-        notify(res.error ?? '扫描失败', 'error');
+        notify(res.error ?? t('libraries.scanFailed'), 'error');
       }
     } catch (err) {
       notify((err as Error).message, 'error');
@@ -230,9 +237,9 @@ export default function LibrariesPage() {
       {isScanning && <LinearProgress sx={{ mb: 0 }} />}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, mt: isScanning ? 1 : 0 }}>
-        <Typography variant="h5">媒体库</Typography>
+        <Typography variant="h5">{t('libraries.title')}</Typography>
         <Button variant="contained" onClick={() => setCreateOpen(true)} disabled={isScanning}>
-          添加媒体库
+          {t('libraries.addButton')}
         </Button>
       </Box>
 
@@ -242,7 +249,7 @@ export default function LibrariesPage() {
           icon={<CircularProgress size={18} color="inherit" />}
           sx={{ mb: 2 }}
         >
-          正在扫描「{scanningLib.name}」，请稍候，扫描完成前请勿离开此页面…
+          {t('libraries.scanning', { name: scanningLib.name })}
         </Alert>
       )}
 
@@ -255,10 +262,10 @@ export default function LibrariesPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>名称</TableCell>
-                <TableCell>路径</TableCell>
-                <TableCell>创建时间</TableCell>
-                <TableCell align="right">操作</TableCell>
+                <TableCell>{t('libraries.columns.name')}</TableCell>
+                <TableCell>{t('libraries.columns.path')}</TableCell>
+                <TableCell>{t('libraries.columns.createdAt')}</TableCell>
+                <TableCell align="right">{t('libraries.columns.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -270,7 +277,7 @@ export default function LibrariesPage() {
                   <TableCell align="right">
                     <IconButton
                       onClick={() => handleScan(lib)}
-                      title="扫描"
+                      title={t('libraries.scan')}
                       disabled={isScanning}
                       size="small"
                     >
@@ -280,7 +287,7 @@ export default function LibrariesPage() {
                     </IconButton>
                     <IconButton
                       onClick={e => openMenu(e, lib)}
-                      title="更多选项"
+                      title={t('libraries.moreOptions')}
                       disabled={isScanning}
                       size="small"
                     >
@@ -291,7 +298,7 @@ export default function LibrariesPage() {
               ))}
               {libraries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} align="center">暂无媒体库，请添加</TableCell>
+                  <TableCell colSpan={4} align="center">{t('libraries.empty')}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -309,12 +316,12 @@ export default function LibrariesPage() {
       >
         <MenuItem onClick={() => { closeMenu(); setExcludeLib(menuLib); }}>
           <ListItemIcon><FolderOffIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>排除文件夹</ListItemText>
+          <ListItemText>{t('libraries.excludeFolders')}</ListItemText>
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => menuLib && handleDelete(menuLib)} sx={{ color: 'error.main' }}>
           <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText>删除媒体库</ListItemText>
+          <ListItemText>{t('libraries.deleteLibrary')}</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -323,15 +330,16 @@ export default function LibrariesPage() {
         <ExcludedFoldersDialog
           library={excludeLib}
           onClose={() => setExcludeLib(null)}
+          onSaved={load}
         />
       )}
 
       {/* Create library dialog */}
       <Dialog open={createOpen} onClose={() => !creating && setCreateOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>添加媒体库</DialogTitle>
+        <DialogTitle>{t('libraries.addDialog.title')}</DialogTitle>
         <DialogContent>
           <TextField
-            label="名称"
+            label={t('common.name')}
             fullWidth
             margin="dense"
             value={name}
@@ -339,24 +347,24 @@ export default function LibrariesPage() {
             disabled={creating}
           />
           <TextField
-            label="路径"
+            label={t('common.path')}
             fullWidth
             margin="dense"
             value={path}
             onChange={e => setPath(e.target.value)}
             disabled={creating}
-            placeholder="/path/to/media"
+            placeholder={t('libraries.addDialog.pathPlaceholder')}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)} disabled={creating}>取消</Button>
+          <Button onClick={() => setCreateOpen(false)} disabled={creating}>{t('common.cancel')}</Button>
           <Button
             onClick={handleCreate}
             variant="contained"
             disabled={creating || !name.trim() || !path.trim()}
             startIcon={creating ? <CircularProgress size={16} /> : null}
           >
-            添加
+            {t('common.add')}
           </Button>
         </DialogActions>
       </Dialog>

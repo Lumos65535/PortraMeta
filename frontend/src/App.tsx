@@ -3,22 +3,26 @@ import {
   AppBar, Box, CssBaseline, Drawer, List, ListItemButton,
   ListItemText, ThemeProvider, Toolbar, Typography, createTheme,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import LibrariesPage from './pages/LibrariesPage';
 import VideosPage from './pages/VideosPage';
 import VideoDetailPage from './pages/VideoDetailPage';
+import SettingsPage from './pages/SettingsPage';
 import { NotifyProvider } from './contexts/NotifyContext';
 
 const theme = createTheme({ palette: { mode: 'dark' } });
 const DRAWER_WIDTH = 200;
 
-const NAV_ITEMS = [
-  { label: '视频文件', path: '/videos' },
-  { label: '媒体库', path: '/libraries' },
-] as const;
-
 function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
+
+  const NAV_ITEMS = [
+    { labelKey: 'nav.videos', path: '/videos' },
+    { labelKey: 'nav.libraries', path: '/libraries' },
+    { labelKey: 'nav.settings', path: '/settings' },
+  ] as const;
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -37,7 +41,7 @@ function Layout() {
               selected={location.pathname.startsWith(item.path)}
               onClick={() => navigate(item.path)}
             >
-              <ListItemText primary={item.label} />
+              <ListItemText primary={t(item.labelKey)} />
             </ListItemButton>
           ))}
         </List>
@@ -49,6 +53,7 @@ function Layout() {
           <Route path="/videos" element={<VideosPage />} />
           <Route path="/videos/:id" element={<VideoDetailPage />} />
           <Route path="/libraries" element={<LibrariesPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Box>
     </Box>

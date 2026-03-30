@@ -21,8 +21,10 @@ nfoforge/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/               # axios 客户端（client.ts）、librariesApi、videosApi
+│   │   ├── api/               # axios 客户端（client.ts）、librariesApi、videosApi
 │   │   ├── contexts/          # NotifyContext（全局 Snackbar 通知）
-│   │   ├── pages/             # LibrariesPage、VideosPage、VideoDetailPage
+│   │   ├── i18n/              # react-i18next 配置（index.ts）、翻译文件（zh.json、en.json）
+│   │   ├── pages/             # LibrariesPage、VideosPage、VideoDetailPage、SettingsPage
 │   │   └── App.tsx            # BrowserRouter + Layout + Routes
 │   └── package.json
 ├── docker-compose.yml
@@ -71,6 +73,14 @@ docker compose down                        # 停止
 - 全局异常处理中间件兜底（`UseExceptionHandler`），返回 500 统一格式
 - 前端错误通过 `useNotify()` hook 统一展示 Snackbar
 - axios 响应拦截器统一提取 `error` 字段并 reject
+
+### 多语言规范（i18n）
+- 前端使用 `react-i18next`，翻译文件位于 `frontend/src/i18n/zh.json`（中文）和 `en.json`（英文）
+- **所有用户可见的文本必须通过 `t()` 读取，严禁在 TSX 中硬编码中文或英文字符串**
+- 新增页面或组件时，先在两个翻译文件中同步添加对应 key，再在组件中使用 `useTranslation()` 调用
+- 翻译 key 按页面/模块分组（`nav.*`、`common.*`、`videos.*`、`videoDetail.*`、`libraries.*`、`settings.*`）
+- 动态内容（含变量的字符串）使用 i18next 插值语法：`t('key', { name: value })`，对应翻译文件中写 `{{name}}`
+- 默认语言为中文，用户选择持久化到 `localStorage`（key: `nfoforge_lang`）
 
 ### 日志规范
 - `ILogger<T>` 注入所有 Service
@@ -122,6 +132,7 @@ Fanart 命名：`{videofile}.fanart.jpg`（横屏，可选）
 - `/videos` → 视频文件列表（可搜索，点击行跳转详情）
 - `/videos/:id` → 视频详情 + 编辑（查看/编辑合一，编辑保存后写 NFO）
 - `/libraries` → 媒体库管理（增删扫描）
+- `/settings` → 设置（语言切换等）
 
 ## 当前开发状态（2026-03-31）
 
