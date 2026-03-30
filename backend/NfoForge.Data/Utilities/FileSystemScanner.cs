@@ -5,21 +5,22 @@ namespace NfoForge.Data.Utilities;
 public class FileSystemScanner
 {
     public async Task<IEnumerable<FileInfo>> FindVideoFilesRecursiveAsync(
-        string libraryPath, CancellationToken ct = default)
+        string libraryPath,
+        IReadOnlySet<string>? excludedPaths = null,
+        CancellationToken ct = default)
     {
         var result = new List<FileInfo>();
-        await ScanDirectoryRecursiveAsync(libraryPath, result, ct);
+        await ScanDirectoryRecursiveAsync(libraryPath, result, excludedPaths, ct);
         return result;
     }
 
     private async Task ScanDirectoryRecursiveAsync(
-        string path, List<FileInfo> videos, CancellationToken ct)
+        string path, List<FileInfo> videos, IReadOnlySet<string>? excludedPaths, CancellationToken ct)
     {
         try
         {
             var dir = new DirectoryInfo(path);
 
-            // Get files in current directory
             foreach (var file in dir.GetFiles())
             {
                 ct.ThrowIfCancellationRequested();
@@ -27,13 +28,17 @@ public class FileSystemScanner
                     videos.Add(file);
             }
 
-            // Recursively scan subdirectories
             foreach (var subdir in dir.GetDirectories())
             {
                 ct.ThrowIfCancellationRequested();
+
+                var fullPath = Path.GetFullPath(subdir.FullName);
+                if (excludedPaths is not null && excludedPaths.Contains(fullPath))
+                    continue;
+
                 try
                 {
-                    await ScanDirectoryRecursiveAsync(subdir.FullName, videos, ct);
+                    await ScanDirectoryRecursiveAsync(subdir.FullName, videos, excludedPaths, ct);
                 }
                 catch (UnauthorizedAccessException)
                 {
@@ -44,6 +49,22 @@ public class FileSystemScanner
         catch (UnauthorizedAccessException)
         {
             // Silently continue if we can't access this directory
+        }
+    }
+
+    /// <summary>Returns immediate subdirectory paths under the given root.</summary>
+    public IReadOnlyList<string> GetSubdirectories(string libraryPath)
+    {
+        try
+        {
+            return Directory.GetDirectories(libraryPath)
+                .Select(Path.GetFullPath)
+                .Order()
+                .ToList();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return [];
         }
     }
 

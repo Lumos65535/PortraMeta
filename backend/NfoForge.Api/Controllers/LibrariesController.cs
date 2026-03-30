@@ -51,4 +51,34 @@ public class LibrariesController(ILibraryService libraryService) : ControllerBas
             ? Ok(new { data = result.Data, success = true })
             : BadRequest(new { error = result.Error, success = false });
     }
+
+    [HttpGet("{id:int}/subdirectories")]
+    public async Task<IActionResult> GetSubdirectories(int id, CancellationToken ct)
+    {
+        var result = await libraryService.GetSubdirectoriesAsync(id, ct);
+        return result.Success
+            ? Ok(new { data = result.Data, success = true })
+            : NotFound(new { error = result.Error, success = false });
+    }
+
+    [HttpGet("{id:int}/excluded-folders")]
+    public async Task<IActionResult> GetExcludedFolders(int id, CancellationToken ct)
+    {
+        var result = await libraryService.GetExcludedFoldersAsync(id, ct);
+        return result.Success
+            ? Ok(new { data = result.Data, success = true })
+            : NotFound(new { error = result.Error, success = false });
+    }
+
+    [HttpPut("{id:int}/excluded-folders")]
+    public async Task<IActionResult> SetExcludedFolders(
+        int id, [FromBody] SetExcludedFoldersRequest request, CancellationToken ct)
+    {
+        var result = await libraryService.SetExcludedFoldersAsync(id, request.Paths, ct);
+        return result.Success
+            ? NoContent()
+            : NotFound(new { error = result.Error, success = false });
+    }
 }
+
+public record SetExcludedFoldersRequest(IReadOnlyList<string> Paths);
