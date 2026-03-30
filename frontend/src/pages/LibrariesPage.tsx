@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-  Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
-  DialogTitle, IconButton, Paper, Table, TableBody, TableCell,
+  Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
+  DialogTitle, IconButton, LinearProgress, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -18,7 +18,7 @@ export default function LibrariesPage() {
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
   const [creating, setCreating] = useState(false);
-  const [scanningId, setScanningId] = useState<number | null>(null);
+  const [scanningLib, setScanningLib] = useState<Library | null>(null);
 
   const load = async () => {
     try {
@@ -64,10 +64,10 @@ export default function LibrariesPage() {
     }
   };
 
-  const handleScan = async (id: number) => {
-    setScanningId(id);
+  const handleScan = async (lib: Library) => {
+    setScanningLib(lib);
     try {
-      const res = await librariesApi.scan(id);
+      const res = await librariesApi.scan(lib.id);
       if (res.success) {
         notify(res.data, 'success');
       } else {
@@ -76,23 +76,41 @@ export default function LibrariesPage() {
     } catch (err) {
       notify((err as Error).message, 'error');
     } finally {
-      setScanningId(null);
+      setScanningLib(null);
     }
   };
 
+  const isScanning = scanningLib !== null;
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+      {/* Scanning progress bar — pinned to top of content area */}
+      {isScanning && <LinearProgress sx={{ mb: 0 }} />}
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, mt: isScanning ? 1 : 0 }}>
         <Typography variant="h5">媒体库</Typography>
-        <Button variant="contained" onClick={() => setOpen(true)}>添加媒体库</Button>
+        <Button variant="contained" onClick={() => setOpen(true)} disabled={isScanning}>
+          添加媒体库
+        </Button>
       </Box>
+
+      {/* Persistent scan-in-progress banner */}
+      {isScanning && (
+        <Alert
+          severity="info"
+          icon={<CircularProgress size={18} color="inherit" />}
+          sx={{ mb: 2 }}
+        >
+          正在扫描「{scanningLib.name}」，请稍候，扫描完成前请勿离开此页面…
+        </Alert>
+      )}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer component={Paper} sx={{ opacity: isScanning ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -110,18 +128,18 @@ export default function LibrariesPage() {
                   <TableCell>{new Date(lib.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell align="right">
                     <IconButton
-                      onClick={() => handleScan(lib.id)}
+                      onClick={() => handleScan(lib)}
                       title="扫描"
-                      disabled={scanningId !== null}
+                      disabled={isScanning}
                     >
-                      {scanningId === lib.id
+                      {scanningLib?.id === lib.id
                         ? <CircularProgress size={20} />
                         : <SyncIcon />}
                     </IconButton>
                     <IconButton
                       onClick={() => handleDelete(lib.id, lib.name)}
                       title="删除"
-                      disabled={scanningId !== null}
+                      disabled={isScanning}
                     >
                       <DeleteIcon />
                     </IconButton>

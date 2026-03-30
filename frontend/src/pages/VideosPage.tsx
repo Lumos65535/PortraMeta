@@ -1,25 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Chip, CircularProgress, Paper, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, Typography,
+  Box, Chip, CircularProgress, Pagination, Paper, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { videosApi } from '../api/videos';
 import type { PagedResult, VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
+
+const PAGE_SIZE = 50;
 
 export default function VideosPage() {
   const notify = useNotify();
   const navigate = useNavigate();
   const [result, setResult] = useState<PagedResult<VideoFile> | null>(null);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = async (searchValue: string) => {
+  const load = async (searchValue: string, pageNum: number) => {
     setLoading(true);
     try {
-      const res = await videosApi.getAll({ search: searchValue || undefined, page: 1, page_size: 50 });
+      const res = await videosApi.getAll({
+        search: searchValue || undefined,
+        page: pageNum,
+        page_size: PAGE_SIZE,
+      });
       if (res.success) setResult(res.data);
     } catch (err) {
       notify((err as Error).message, 'error');
@@ -29,14 +36,22 @@ export default function VideosPage() {
   };
 
   useEffect(() => {
-    load('');
+    load('', 1);
   }, []);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
+    setPage(1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => load(value), 300);
+    debounceRef.current = setTimeout(() => load(value, 1), 300);
   };
+
+  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
+    setPage(newPage);
+    load(search, newPage);
+  };
+
+  const pageCount = result ? Math.ceil(result.total / PAGE_SIZE) : 0;
 
   return (
     <Box>
@@ -57,46 +72,61 @@ export default function VideosPage() {
           <CircularProgress />
         </Box>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>文件名</TableCell>
-                <TableCell>标题</TableCell>
-                <TableCell>年份</TableCell>
-                <TableCell>厂牌</TableCell>
-                <TableCell>NFO</TableCell>
-                <TableCell>海报</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {result?.items.map(v => (
-                <TableRow
-                  key={v.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/videos/${v.id}`)}
-                >
-                  <TableCell>{v.fileName}</TableCell>
-                  <TableCell>{v.title ?? '—'}</TableCell>
-                  <TableCell>{v.year ?? '—'}</TableCell>
-                  <TableCell>{v.studioName ?? '—'}</TableCell>
-                  <TableCell>
-                    <Chip label={v.hasNfo ? '✓' : '✗'} color={v.hasNfo ? 'success' : 'default'} size="small" />
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={v.hasPoster ? '✓' : '✗'} color={v.hasPoster ? 'success' : 'default'} size="small" />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {result?.items.length === 0 && (
+        <>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={6} align="center">暂无视频文件，请先添加媒体库并扫描</TableCell>
+                  <TableCell>文件名</TableCell>
+                  <TableCell>标题</TableCell>
+                  <TableCell>年份</TableCell>
+                  <TableCell>厂牌</TableCell>
+                  <TableCell>NFO</TableCell>
+                  <TableCell>海报</TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {result?.items.map(v => (
+                  <TableRow
+                    key={v.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/videos/${v.id}`)}
+                  >
+                    <TableCell>{v.fileName}</TableCell>
+                    <TableCell>{v.title ?? '—'}</TableCell>
+                    <TableCell>{v.year ?? '—'}</TableCell>
+                    <TableCell>{v.studioName ?? '—'}</TableCell>
+                    <TableCell>
+                      <Chip label={v.hasNfo ? '✓' : '✗'} color={v.hasNfo ? 'success' : 'default'} size="small" />
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={v.hasPoster ? '✓' : '✗'} color={v.hasPoster ? 'success' : 'default'} size="small" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {result?.items.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">暂无视频文件，请先添加媒体库并扫描</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {pageCount > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Pagination
+                count={pageCount}
+                page={page}
+                onChange={handlePageChange}
+                color="primary"
+                showFirstButton
+                showLastButton
+              />
+            </Box>
+          )}
+        </>
       )}
     </Box>
   );
