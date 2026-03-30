@@ -100,7 +100,8 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
         // Write NFO file
         var dto = ToDto(v);
-        var nfoPath = $"{v.FilePath}.nfo";
+        // Standard naming: video.mp4 → video.nfo
+        var nfoPath = Path.ChangeExtension(v.FilePath, ".nfo");
         await nfoService.WriteAsync(nfoPath, dto, ct);
 
         // Update HasNfo flag if file was just created

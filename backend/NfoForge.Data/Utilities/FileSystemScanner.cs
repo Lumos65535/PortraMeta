@@ -70,13 +70,15 @@ public class FileSystemScanner
 
     public bool HasNfoFile(string videoFilePath)
     {
-        var nfoPath = $"{videoFilePath}.nfo";
+        // Standard naming: video.mp4 → video.nfo (not video.mp4.nfo)
+        var nfoPath = Path.ChangeExtension(videoFilePath, ".nfo");
         return File.Exists(nfoPath);
     }
 
     public bool HasPosterFile(string videoFilePath)
     {
-        var posterPath = $"{videoFilePath}.poster.jpg";
+        // Standard naming: video.mp4 → video.poster.jpg (not video.mp4.poster.jpg)
+        var posterPath = Path.ChangeExtension(videoFilePath, ".poster.jpg");
         return File.Exists(posterPath);
     }
 }

@@ -118,6 +118,26 @@ public class LibraryService(
 
             var videoFiles = (await scanner.FindVideoFilesRecursiveAsync(library.Path, excludedPaths, ct)).ToList();
 
+            // Remove any DB entries whose file path falls under an excluded directory
+            if (excludedPaths.Count > 0)
+            {
+                var toRemove = await db.VideoFiles
+                    .Where(v => v.LibraryId == id)
+                    .ToListAsync(ct);
+
+                var staleEntries = toRemove.Where(v =>
+                    excludedPaths.Any(ex =>
+                        v.FilePath.StartsWith(ex + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                        || v.FilePath.StartsWith(ex + '/', StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
+                if (staleEntries.Count > 0)
+                {
+                    db.VideoFiles.RemoveRange(staleEntries);
+                    logger.LogInformation("Removed {Count} stale entries from excluded folders", staleEntries.Count);
+                }
+            }
+
             var existingPaths = await db.VideoFiles
                 .Where(v => v.LibraryId == id)
                 .Select(v => v.FilePath)
@@ -155,7 +175,7 @@ public class LibraryService(
 
                 if (videoFile.HasNfo)
                 {
-                    var nfoPath = $"{fullPath}.nfo";
+                    var nfoPath = Path.ChangeExtension(fullPath, ".nfo");
                     var nfoData = await nfoParser.ParseAsync(nfoPath, ct);
                     if (nfoData is not null)
                     {

@@ -73,7 +73,7 @@ function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps)
       <DialogTitle>
         排除文件夹
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {library.name} — 取消勾选的文件夹将在扫描时被跳过
+          {library.name} — 勾选的文件夹将在扫描时被跳过
         </Typography>
       </DialogTitle>
       <Divider />
@@ -93,7 +93,7 @@ function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps)
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={!excluded.has(dir)}
+                      checked={excluded.has(dir)}
                       onChange={() => toggle(dir)}
                       size="small"
                     />
@@ -113,7 +113,7 @@ function ExcludedFoldersDialog({ library, onClose }: ExcludedFoldersDialogProps)
       </DialogContent>
       <DialogActions>
         <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1, pl: 1 }}>
-          {excluded.size > 0 ? `已排除 ${excluded.size} 个文件夹（取消勾选）` : '所有文件夹均参与扫描'}
+          {excluded.size > 0 ? `已排除 ${excluded.size} 个文件夹` : '未排除任何文件夹'}
         </Typography>
         <Button onClick={onClose} disabled={saving}>取消</Button>
         <Button
