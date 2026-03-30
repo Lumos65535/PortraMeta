@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NfoForge.Core.Interfaces;
 using NfoForge.Core.Models;
 using NfoForge.Data.Entities;
+using NfoForge.Data.Utilities;
 
 namespace NfoForge.Data.Services;
 
@@ -43,9 +44,70 @@ public class LibraryService(AppDbContext db) : ILibraryService
         return Result.Ok();
     }
 
-    public Task<Result<string>> ScanAsync(int id, CancellationToken ct = default)
+    public async Task<Result<string>> ScanAsync(int id, CancellationToken ct = default)
     {
-        // Placeholder — scan implementation will be added in next iteration
-        return Task.FromResult(Result<string>.Ok($"Scan queued for library {id}"));
+        var library = await db.Libraries.FindAsync([id], ct);
+        if (library is null)
+            return Result<string>.Fail("Library not found");
+
+        if (!Directory.Exists(library.Path))
+            return Result<string>.Fail($"Library path not found: {library.Path}");
+
+        try
+        {
+            var scanner = new FileSystemScanner();
+            var videoFiles = await scanner.FindVideoFilesRecursiveAsync(library.Path, ct);
+
+            // Get existing file paths to detect duplicates
+            var existingPaths = await db.VideoFiles
+                .Where(v => v.LibraryId == id)
+                .Select(v => v.FilePath)
+                .ToHashSetAsync(ct);
+
+            var newEntities = new List<VideoFile>();
+            int skipped = 0;
+
+            foreach (var file in videoFiles)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var fullPath = Path.GetFullPath(file.FullName);
+
+                // Skip if this path already exists
+                if (existingPaths.Contains(fullPath))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                newEntities.Add(new VideoFile
+                {
+                    LibraryId = id,
+                    FileName = Path.GetFileName(fullPath),
+                    FilePath = fullPath,
+                    FileSizeBytes = file.Length,
+                    HasNfo = scanner.HasNfoFile(fullPath),
+                    HasPoster = scanner.HasPosterFile(fullPath),
+                    ScannedAt = DateTime.UtcNow
+                });
+            }
+
+            // Batch insert new video files
+            if (newEntities.Count > 0)
+                await db.VideoFiles.AddRangeAsync(newEntities, ct);
+
+            await db.SaveChangesAsync(ct);
+
+            var summary = $"Scanned {videoFiles.Count()} files: added {newEntities.Count}, skipped {skipped}";
+            return Result<string>.Ok(summary);
+        }
+        catch (OperationCanceledException)
+        {
+            return Result<string>.Fail("Scan cancelled");
+        }
+        catch (Exception ex)
+        {
+            return Result<string>.Fail($"Scan failed: {ex.Message}");
+        }
     }
 }
