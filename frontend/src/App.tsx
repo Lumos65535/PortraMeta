@@ -25,14 +25,21 @@ function Layout() {
   ] as const;
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', width: '100%', minWidth: 0, overflowX: 'hidden' }}>
       <AppBar position="fixed" sx={{ zIndex: t => t.zIndex.drawer + 1 }}>
         <Toolbar>
           <Typography variant="h6">NfoForge</Typography>
         </Toolbar>
       </AppBar>
 
-      <Drawer variant="permanent" sx={{ width: DRAWER_WIDTH, '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}>
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
+        }}
+      >
         <Toolbar />
         <List>
           {NAV_ITEMS.map(item => (
@@ -47,7 +54,7 @@ function Layout() {
         </List>
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, overflowX: 'hidden', p: 3, mt: 8 }}>
         <Routes>
           <Route path="/" element={<Navigate to="/videos" replace />} />
           <Route path="/videos" element={<VideosPage />} />

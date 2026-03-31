@@ -17,6 +17,8 @@
     "title": "视频文件",
     "titleWithCount": "视频文件 ({{count}})",
     "search": "搜索",
+    "selectFields": "选择字段",
+    "pagination": "第 {{page}} / {{totalPages}} 页",
     "empty": "暂无视频文件，请先添加媒体库并扫描",
     "columns": {
       "filename": "文件名",
@@ -24,7 +26,13 @@
       "year": "年份",
       "studio": "厂牌",
       "nfo": "NFO",
-      "poster": "海报"
+      "poster": "海报",
+      "fanart": "Fanart",
+      "path": "路径",
+      "size": "大小",
+      "originalTitle": "原标题",
+      "plot": "简介",
+      "scannedAt": "扫描时间"
     }
   },
   "videoDetail": {

@@ -17,6 +17,8 @@
     "title": "Videos",
     "titleWithCount": "Videos ({{count}})",
     "search": "Search",
+    "selectFields": "Select Fields",
+    "pagination": "Page {{page}} / {{totalPages}}",
     "empty": "No videos found. Please add a library and scan.",
     "columns": {
       "filename": "Filename",
@@ -24,7 +26,13 @@
       "year": "Year",
       "studio": "Studio",
       "nfo": "NFO",
-      "poster": "Poster"
+      "poster": "Poster",
+      "fanart": "Fanart",
+      "path": "Path",
+      "size": "Size",
+      "originalTitle": "Original Title",
+      "plot": "Plot",
+      "scannedAt": "Scanned At"
     }
   },
   "videoDetail": {

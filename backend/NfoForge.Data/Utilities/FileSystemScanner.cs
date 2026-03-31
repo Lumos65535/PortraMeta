@@ -4,6 +4,8 @@ namespace NfoForge.Data.Utilities;
 
 public class FileSystemScanner
 {
+    private static readonly string[] SupportedImageExtensions = [".jpg", ".jpeg", ".png"];
+
     // ── Static path helpers ────────────────────────────────────────────────
 
     /// <summary>video.mp4 → video.nfo</summary>
@@ -21,6 +23,23 @@ public class FileSystemScanner
         Path.Combine(
             Path.GetDirectoryName(videoFilePath)!,
             Path.GetFileNameWithoutExtension(videoFilePath) + "-fanart.jpg");
+
+    private static bool HasImageWithAnyExtension(string baseImagePathWithoutExtension)
+    {
+        var directoryPath = Path.GetDirectoryName(baseImagePathWithoutExtension);
+        var fileStem = Path.GetFileName(baseImagePathWithoutExtension);
+        if (directoryPath is null || fileStem is null || !Directory.Exists(directoryPath))
+            return false;
+
+        foreach (var filePath in Directory.EnumerateFiles(directoryPath, fileStem + ".*"))
+        {
+            var extension = Path.GetExtension(filePath);
+            if (SupportedImageExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
 
     // ── Instance methods ───────────────────────────────────────────────────
 
@@ -83,6 +102,19 @@ public class FileSystemScanner
     }
 
     public bool HasNfoFile(string videoFilePath) => File.Exists(NfoPath(videoFilePath));
-    public bool HasPosterFile(string videoFilePath) => File.Exists(PosterPath(videoFilePath));
-    public bool HasFanartFile(string videoFilePath) => File.Exists(FanartPath(videoFilePath));
+    public bool HasPosterFile(string videoFilePath)
+    {
+        var basePath = Path.Combine(
+            Path.GetDirectoryName(videoFilePath)!,
+            Path.GetFileNameWithoutExtension(videoFilePath) + "-poster");
+        return HasImageWithAnyExtension(basePath);
+    }
+
+    public bool HasFanartFile(string videoFilePath)
+    {
+        var basePath = Path.Combine(
+            Path.GetDirectoryName(videoFilePath)!,
+            Path.GetFileNameWithoutExtension(videoFilePath) + "-fanart");
+        return HasImageWithAnyExtension(basePath);
+    }
 }
