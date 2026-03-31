@@ -21,7 +21,6 @@ nfoforge/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/               # axios 客户端（client.ts）、librariesApi、videosApi
-│   │   ├── api/               # axios 客户端（client.ts）、librariesApi、videosApi
 │   │   ├── contexts/          # NotifyContext（全局 Snackbar 通知）
 │   │   ├── i18n/              # react-i18next 配置（index.ts）、翻译文件（zh.json、en.json）
 │   │   ├── pages/             # LibrariesPage、VideosPage、VideoDetailPage、SettingsPage
@@ -96,6 +95,7 @@ docker compose down                        # 停止
 - `Studio`：厂牌（含 Logo 路径；扫描时按 Name 查找或创建）
 - `Actor`：演员（含别名、头像等；扫描时按 Name 查找或创建）
 - `VideoActor`：视频-演员多对多关联（含 Role、Order）
+- `ExcludedFolder`：扫描排除目录（关联 Library，存储绝对路径）
 
 ## NFO 格式
 
@@ -116,8 +116,8 @@ Kodi Movie NFO 标准（Infuse 兼容），文件命名：`{videofile}.nfo`
 </movie>
 ```
 
-海报命名：`{videofile}.poster.jpg`（竖屏）
-Fanart 命名：`{videofile}.fanart.jpg`（横屏，可选）
+海报命名：`{videofile}-poster.jpg`（竖屏）
+Fanart 命名：`{videofile}-fanart.jpg`（横屏，可选）
 
 ## API 规范
 
@@ -125,6 +125,8 @@ Fanart 命名：`{videofile}.fanart.jpg`（横屏，可选）
 - 分页参数：`?page=1&page_size=50`
 - 筛选参数：`?has_nfo=false&has_poster=false&studio_id=1`
 - 视频更新：`PUT /api/videos/{id}`，同时写 SQLite + NFO 文件
+- 获取子目录：`GET /api/libraries/{id}/subdirectories`（用于排除目录 UI 浏览）
+- 排除目录管理：`GET /api/libraries/{id}/excluded-folders`、`PUT /api/libraries/{id}/excluded-folders`
 
 ## 前端路由
 
@@ -144,7 +146,15 @@ Fanart 命名：`{videofile}.fanart.jpg`（横屏，可选）
 5. ✅ 元数据编辑 + NFO 生成（PUT /api/videos/{id} + VideoDetailPage）
 6. ✅ 后端日志（ILogger）、全局异常处理中间件
 7. ✅ 前端通知系统（useNotify/Snackbar）、loading 状态、搜索 debounce、react-router
+8. ✅ 排除目录功能（ExcludedFolder 实体 + LibraryService + 前端 UI 弹窗选择）
+9. ✅ 视频列表列配置持久化（列可见性、列宽自动保存至 localStorage）
 
 待实现：
-6. 海报上传和重命名（`POST /api/videos/{id}/poster`）
-7. 刮削器接口预留 `/api/scrapers`（暂不实现）
+10. 海报上传和重命名（`POST /api/videos/{id}/poster`）
+11. 演员编辑 UI（VideoDetailPage 目前只展示演员，无法通过界面添加/修改）
+12. 刮削器接口预留 `/api/scrapers`（暂不实现）
+
+## 已知限制
+
+- `Actor.AvatarPath`、`Actor.Aliases`、`Studio.LogoPath` 字段已定义在实体中，但尚未在 API 或前端使用
+- 演员数据仅在扫描 NFO 时写入，当前无法通过 UI 直接编辑
