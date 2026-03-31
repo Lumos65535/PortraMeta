@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar, Box, CssBaseline, Drawer, List, ListItemButton,
@@ -9,8 +10,8 @@ import VideosPage from './pages/VideosPage';
 import VideoDetailPage from './pages/VideoDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import { NotifyProvider } from './contexts/NotifyContext';
+import { ThemeModeProvider, useThemeMode } from './contexts/ThemeModeContext';
 
-const theme = createTheme({ palette: { mode: 'dark' } });
 const DRAWER_WIDTH = 200;
 
 function Layout() {
@@ -67,7 +68,10 @@ function Layout() {
   );
 }
 
-export default function App() {
+function ThemedApp() {
+  const { resolvedMode } = useThemeMode();
+  const theme = useMemo(() => createTheme({ palette: { mode: resolvedMode } }), [resolvedMode]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -77,5 +81,13 @@ export default function App() {
         </BrowserRouter>
       </NotifyProvider>
     </ThemeProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeModeProvider>
+      <ThemedApp />
+    </ThemeModeProvider>
   );
 }

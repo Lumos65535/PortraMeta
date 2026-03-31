@@ -99,6 +99,13 @@
       "subtitle": "选择界面显示语言",
       "zh": "中文",
       "en": "English"
+    },
+    "theme": {
+      "title": "外观",
+      "subtitle": "选择界面主题",
+      "light": "亮色",
+      "dark": "暗色",
+      "system": "跟随系统"
     }
   }
 }

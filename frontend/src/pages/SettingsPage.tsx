@@ -3,12 +3,18 @@ import {
   Box, Divider, Paper, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
 import { setLanguage } from '../i18n';
+import { type ThemeMode, useThemeMode } from '../contexts/ThemeModeContext';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
+  const { themeMode, setThemeMode } = useThemeMode();
 
   const handleLangChange = (_: React.MouseEvent<HTMLElement>, value: 'zh' | 'en' | null) => {
     if (value) setLanguage(value);
+  };
+
+  const handleThemeChange = (_: React.MouseEvent<HTMLElement>, value: ThemeMode | null) => {
+    if (value) setThemeMode(value);
   };
 
   return (
@@ -30,6 +36,26 @@ export default function SettingsPage() {
           >
             <ToggleButton value="zh">{t('settings.language.zh')}</ToggleButton>
             <ToggleButton value="en">{t('settings.language.en')}</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+      </Paper>
+
+      <Paper sx={{ p: 2, maxWidth: 480, mt: 2 }}>
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          {t('settings.theme.title')}
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="body2">{t('settings.theme.subtitle')}</Typography>
+          <ToggleButtonGroup
+            value={themeMode}
+            exclusive
+            onChange={handleThemeChange}
+            size="small"
+          >
+            <ToggleButton value="light">{t('settings.theme.light')}</ToggleButton>
+            <ToggleButton value="dark">{t('settings.theme.dark')}</ToggleButton>
+            <ToggleButton value="system">{t('settings.theme.system')}</ToggleButton>
           </ToggleButtonGroup>
         </Box>
       </Paper>

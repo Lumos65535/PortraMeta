@@ -99,6 +99,13 @@
       "subtitle": "Select display language",
       "zh": "中文",
       "en": "English"
+    },
+    "theme": {
+      "title": "Appearance",
+      "subtitle": "Select interface theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
     }
   }
 }
