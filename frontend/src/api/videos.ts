@@ -43,12 +43,19 @@ export interface VideoFilter {
   page_size?: number;
 }
 
+export interface ActorRequest {
+  name: string;
+  role: string | null;
+  order: number;
+}
+
 export interface UpdateVideoRequest {
   title: string | null;
   originalTitle: string | null;
   year: number | null;
   plot: string | null;
   studioName: string | null;
+  actors?: ActorRequest[];
 }
 
 export const videosApi = {
@@ -58,4 +65,20 @@ export const videosApi = {
     api.get<ApiResponse<VideoFile>>(`/videos/${id}`).then(r => r.data),
   update: (id: number, data: UpdateVideoRequest) =>
     api.put<ApiResponse<VideoFile>>(`/videos/${id}`, data).then(r => r.data),
+  getPosterUrl: (id: number): string => `/api/videos/${id}/poster`,
+  uploadPoster: (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api
+      .post<ApiResponse<VideoFile>>(`/videos/${id}/poster`, formData)
+      .then(r => r.data);
+  },
+  getFanartUrl: (id: number): string => `/api/videos/${id}/fanart`,
+  uploadFanart: (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api
+      .post<ApiResponse<VideoFile>>(`/videos/${id}/fanart`, formData)
+      .then(r => r.data);
+  },
 };

@@ -44,11 +44,25 @@
     "metadata": "元数据",
     "actors": "演员",
     "noActors": "暂无演员信息",
+    "addActor": "添加演员",
+    "actorName": "演员姓名",
+    "actorRole": "角色",
     "exists": "✓ 存在",
     "missing": "✗ 缺失",
     "saveSuccess": "保存成功",
     "saveFailed": "保存失败",
     "loadFailed": "加载失败",
+    "noPoster": "暂无海报图片",
+    "uploadPoster": "点击、拖拽或粘贴图片上传海报",
+    "uploading": "上传中…",
+    "posterUploadSuccess": "海报上传成功",
+    "posterUploadFailed": "海报上传失败",
+    "posterTooLarge": "文件过大（最大 10 MB）",
+    "posterInvalidType": "仅支持 JPEG、PNG、WebP 格式",
+    "noFanart": "暂无 Fanart 图片",
+    "uploadFanart": "点击、拖拽或粘贴图片上传 Fanart",
+    "fanartUploadSuccess": "Fanart 上传成功",
+    "fanartUploadFailed": "Fanart 上传失败",
     "fields": {
       "path": "路径",
       "size": "大小",
@@ -99,6 +113,13 @@
       "subtitle": "选择界面显示语言",
       "zh": "中文",
       "en": "English"
+    },
+    "theme": {
+      "title": "外观",
+      "subtitle": "选择界面主题",
+      "light": "亮色",
+      "dark": "暗色",
+      "system": "跟随系统"
     }
   }
 }

@@ -21,7 +21,6 @@ nfoforge/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/               # axios 客户端（client.ts）、librariesApi、videosApi
-│   │   ├── api/               # axios 客户端（client.ts）、librariesApi、videosApi
 │   │   ├── contexts/          # NotifyContext（全局 Snackbar 通知）
 │   │   ├── i18n/              # react-i18next 配置（index.ts）、翻译文件（zh.json、en.json）
 │   │   ├── pages/             # LibrariesPage、VideosPage、VideoDetailPage、SettingsPage
@@ -96,6 +95,7 @@ docker compose down                        # 停止
 - `Studio`：厂牌（含 Logo 路径；扫描时按 Name 查找或创建）
 - `Actor`：演员（含别名、头像等；扫描时按 Name 查找或创建）
 - `VideoActor`：视频-演员多对多关联（含 Role、Order）
+- `ExcludedFolder`：扫描排除目录（关联 Library，存储绝对路径）
 
 ## NFO 格式
 
@@ -116,8 +116,8 @@ Kodi Movie NFO 标准（Infuse 兼容），文件命名：`{videofile}.nfo`
 </movie>
 ```
 
-海报命名：`{videofile}.poster.jpg`（竖屏）
-Fanart 命名：`{videofile}.fanart.jpg`（横屏，可选）
+海报命名：`{videofile}-poster.jpg`（竖屏）
+Fanart 命名：`{videofile}-fanart.jpg`（横屏，可选）
 
 ## API 规范
 
@@ -125,6 +125,8 @@ Fanart 命名：`{videofile}.fanart.jpg`（横屏，可选）
 - 分页参数：`?page=1&page_size=50`
 - 筛选参数：`?has_nfo=false&has_poster=false&studio_id=1`
 - 视频更新：`PUT /api/videos/{id}`，同时写 SQLite + NFO 文件
+- 获取子目录：`GET /api/libraries/{id}/subdirectories`（用于排除目录 UI 浏览）
+- 排除目录管理：`GET /api/libraries/{id}/excluded-folders`、`PUT /api/libraries/{id}/excluded-folders`
 
 ## 前端路由
 
@@ -133,6 +135,82 @@ Fanart 命名：`{videofile}.fanart.jpg`（横屏，可选）
 - `/videos/:id` → 视频详情 + 编辑（查看/编辑合一，编辑保存后写 NFO）
 - `/libraries` → 媒体库管理（增删扫描）
 - `/settings` → 设置（语言切换等）
+
+## 后端配置说明
+
+### CORS 配置
+
+支持多种模式，通过 `appsettings.json` 或环境变量控制：
+
+```json
+"Cors": {
+  "AllowedOrigins": "http://localhost:3000",  // 逗号分隔，支持多个 Origin
+  "AllowAnyOrigin": false                      // true = 允许任意来源（本地/桌面模式）
+}
+```
+
+| 场景 | 配置 |
+|------|------|
+| Docker 默认 Web | `AllowedOrigins=http://localhost:3000` |
+| 多个前端域名 | `AllowedOrigins=http://a.com,https://b.com` |
+| Tauri/Electron 桌面客户端 | `AllowAnyOrigin=true` |
+
+> 旧配置键 `Cors:AllowedOrigin`（单数）向后兼容，仍可使用。
+
+### API Key 认证（可选）
+
+默认**禁用**。设置非空值后，所有 API 请求需携带 `X-Api-Key` 头：
+
+```json
+"Auth": {
+  "ApiKey": ""   // 空字符串 = 禁用；填入密钥则启用
+}
+```
+
+Docker 中通过环境变量启用：
+
+```yaml
+environment:
+  - Auth__ApiKey=your-secret-key
+```
+
+前端对应构建参数（`VITE_API_KEY`），有值时 axios 自动附加请求头：
+
+```bash
+VITE_API_KEY=your-secret-key npm run build
+```
+
+> CORS OPTIONS 预检请求豁免 API Key 校验，不影响浏览器跨域协商。
+
+## 多平台扩展方向
+
+当前后端架构已为多平台接入做好准备，**后端代码无需改动**，通过配置适配不同场景：
+
+```
+              .NET REST API（不变）
+                      │
+      ┌───────────────┼───────────────┐
+      │               │               │
+   浏览器          Docker Nginx    桌面壳（Tauri）
+   （已完成）       （已完成）      macOS / Windows
+```
+
+### 桌面客户端（推荐方案：Tauri）
+
+- Tauri 作为原生窗口壳，内嵌 WebView 加载现有 React 前端
+- .NET 后端作为 Tauri sidecar 子进程在本地启动
+- 后端配置：`Cors__AllowAnyOrigin=true`（桌面本地模式）
+- 同一份 Tauri 代码支持 macOS 和 Windows 打包
+- **无需修改任何前后端代码**
+
+### 阶段路线图
+
+| 阶段 | 状态 | 内容 |
+|------|------|------|
+| 0 | ✅ 完成 | Docker + Web 基础功能 |
+| 1 | ✅ 完成 | CORS 多 Origin + 可选 API Key |
+| 2 | 待实现 | Tauri 项目 + 嵌入后端子进程（macOS） |
+| 3 | 待实现 | Windows 安装包打包（同一份 Tauri 代码） |
 
 ## 当前开发状态（2026-03-31）
 
@@ -144,7 +222,20 @@ Fanart 命名：`{videofile}.fanart.jpg`（横屏，可选）
 5. ✅ 元数据编辑 + NFO 生成（PUT /api/videos/{id} + VideoDetailPage）
 6. ✅ 后端日志（ILogger）、全局异常处理中间件
 7. ✅ 前端通知系统（useNotify/Snackbar）、loading 状态、搜索 debounce、react-router
+8. ✅ 排除目录功能（ExcludedFolder 实体 + LibraryService + 前端 UI 弹窗选择）
+9. ✅ 视频列表列配置持久化（列可见性、列宽自动保存至 localStorage）
+10. ✅ 海报上传（POST /api/videos/{id}/poster）+ 预览（GET /api/videos/{id}/poster）
+11. ✅ Fanart 上传（POST /api/videos/{id}/fanart）+ 预览（GET /api/videos/{id}/fanart）
+12. ✅ 演员编辑 UI（VideoDetailPage 编辑模式下可增删改演员及角色）
+13. ✅ 亮色/暗色/跟随系统主题切换（ThemeModeContext + 设置页）
+14. ✅ CORS 多 Origin + 可选 API Key 认证（阶段一多平台铺垫）
 
 待实现：
-6. 海报上传和重命名（`POST /api/videos/{id}/poster`）
-7. 刮削器接口预留 `/api/scrapers`（暂不实现）
+15. 刮削器接口预留 `/api/scrapers`（暂不实现）
+16. Tauri 桌面客户端打包（macOS / Windows）
+
+## 已知限制
+
+- `Actor.AvatarPath`、`Actor.Aliases`、`Studio.LogoPath` 字段已定义在实体中，但尚未在 API 或前端使用
+- 搜索区分大小写（SQLite `LIKE` 默认行为）
+- 无法单独重新扫描某个视频文件（只能扫描整个媒体库）

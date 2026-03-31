@@ -30,12 +30,15 @@ public record VideoFileFilter(
     string? Search = null
 );
 
+public record ActorRequest(string Name, string? Role, int Order);
+
 public record UpdateVideoRequest(
     string? Title,
     string? OriginalTitle,
     int? Year,
     string? Plot,
-    string? StudioName
+    string? StudioName,
+    IReadOnlyList<ActorRequest>? Actors = null
 );
 
 public interface IVideoService
@@ -44,4 +47,12 @@ public interface IVideoService
         VideoFileFilter filter, int page, int pageSize, CancellationToken ct = default);
     Task<Result<VideoFileDto>> GetByIdAsync(int id, CancellationToken ct = default);
     Task<Result<VideoFileDto>> UpdateAsync(int id, UpdateVideoRequest request, CancellationToken ct = default);
+    Task<Result<string>> GetPosterPathAsync(int id, CancellationToken ct = default);
+    Task<Result<VideoFileDto>> UploadPosterAsync(
+        int id, Stream imageStream, string contentType, long contentLength,
+        CancellationToken ct = default);
+    Task<Result<string>> GetFanartPathAsync(int id, CancellationToken ct = default);
+    Task<Result<VideoFileDto>> UploadFanartAsync(
+        int id, Stream imageStream, string contentType, long contentLength,
+        CancellationToken ct = default);
 }

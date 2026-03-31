@@ -44,11 +44,25 @@
     "metadata": "Metadata",
     "actors": "Actors",
     "noActors": "No actor information",
+    "addActor": "Add Actor",
+    "actorName": "Actor Name",
+    "actorRole": "Role",
     "exists": "✓ Exists",
     "missing": "✗ Missing",
     "saveSuccess": "Saved successfully",
     "saveFailed": "Save failed",
     "loadFailed": "Load failed",
+    "noPoster": "No poster image",
+    "uploadPoster": "Click, drag, or paste to upload poster",
+    "uploading": "Uploading…",
+    "posterUploadSuccess": "Poster uploaded successfully",
+    "posterUploadFailed": "Poster upload failed",
+    "posterTooLarge": "File too large (max 10 MB)",
+    "posterInvalidType": "Only JPEG, PNG, WebP are supported",
+    "noFanart": "No fanart image",
+    "uploadFanart": "Click, drag, or paste to upload fanart",
+    "fanartUploadSuccess": "Fanart uploaded successfully",
+    "fanartUploadFailed": "Fanart upload failed",
     "fields": {
       "path": "Path",
       "size": "Size",
@@ -99,6 +113,13 @@
       "subtitle": "Select display language",
       "zh": "中文",
       "en": "English"
+    },
+    "theme": {
+      "title": "Appearance",
+      "subtitle": "Select interface theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
     }
   }
 }

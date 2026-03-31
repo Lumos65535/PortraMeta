@@ -2,9 +2,15 @@ import axios from 'axios';
 
 const BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL ?? 'http://localhost:5001');
 
+// Optional API key — set VITE_API_KEY at build time or leave empty to disable.
+const API_KEY = import.meta.env.VITE_API_KEY ?? '';
+
 export const api = axios.create({
   baseURL: BASE_URL ? `${BASE_URL}/api` : '/api',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    ...(API_KEY ? { 'X-Api-Key': API_KEY } : {}),
+  },
 });
 
 export interface ApiResponse<T> {
