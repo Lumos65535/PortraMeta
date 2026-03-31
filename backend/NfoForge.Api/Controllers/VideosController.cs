@@ -70,4 +70,32 @@ public class VideosController(IVideoService videoService) : ControllerBase
                 ? NotFound(new { error = result.Error, success = false })
                 : BadRequest(new { error = result.Error, success = false });
     }
+
+    [HttpGet("{id:int}/fanart")]
+    public async Task<IActionResult> GetFanart(int id, CancellationToken ct)
+    {
+        var result = await videoService.GetFanartPathAsync(id, ct);
+        if (!result.Success)
+            return NotFound(new { error = result.Error, success = false });
+
+        var ext = Path.GetExtension(result.Data!).ToLowerInvariant();
+        var mime = ext switch { ".png" => "image/png", ".webp" => "image/webp", _ => "image/jpeg" };
+        return PhysicalFile(result.Data!, mime);
+    }
+
+    [HttpPost("{id:int}/fanart")]
+    [RequestSizeLimit(10 * 1024 * 1024 + 4096)]
+    public async Task<IActionResult> UploadFanart(int id, IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { error = "No file provided", success = false });
+
+        using var stream = file.OpenReadStream();
+        var result = await videoService.UploadFanartAsync(id, stream, file.ContentType, file.Length, ct);
+        return result.Success
+            ? Ok(new { data = result.Data, success = true })
+            : result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                ? NotFound(new { error = result.Error, success = false })
+                : BadRequest(new { error = result.Error, success = false });
+    }
 }

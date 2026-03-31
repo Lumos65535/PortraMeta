@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Box, Button, Chip, CircularProgress, Divider, Grid,
+  Box, Button, Chip, CircularProgress, Divider, Grid, IconButton,
   Paper, Stack, TextField, Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
 import type { VideoFile } from '../api/videos';
@@ -20,12 +22,20 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+interface ActorEditState {
+  name: string;
+  role: string;
+}
+
 interface EditState {
   title: string;
   originalTitle: string;
   year: string;
   plot: string;
   studioName: string;
+  actors: ActorEditState[];
 }
 
 function toEditState(v: VideoFile): EditState {
@@ -35,7 +45,116 @@ function toEditState(v: VideoFile): EditState {
     year: v.year?.toString() ?? '',
     plot: v.plot ?? '',
     studioName: v.studioName ?? '',
+    actors: (v.actors ?? []).map(a => ({ name: a.name, role: a.role ?? '' })),
   };
+}
+
+// Reusable upload panel (poster or fanart)
+interface ImagePanelProps {
+  label: string;
+  hasImage: boolean;
+  imageUrl: string;
+  imageAlt: string;
+  uploading: boolean;
+  dragOver: boolean;
+  uploadHint: string;
+  noImageText: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onUpload: (file: File) => void;
+  onDragOver: () => void;
+  onDragLeave: () => void;
+}
+
+function ImageUploadPanel({
+  label, hasImage, imageUrl, imageAlt, uploading, dragOver,
+  uploadHint, noImageText, inputRef, onUpload, onDragOver, onDragLeave,
+}: ImagePanelProps) {
+  const { t } = useTranslation();
+  return (
+    <Paper
+      sx={{
+        p: 2,
+        cursor: uploading ? 'default' : 'pointer',
+        border: '2px solid',
+        borderColor: dragOver ? 'primary.main' : 'transparent',
+        transition: 'border-color 0.2s',
+        outline: 'none',
+      }}
+      tabIndex={0}
+      onClick={() => !uploading && inputRef.current?.click()}
+      onDragOver={e => { e.preventDefault(); onDragOver(); }}
+      onDragLeave={onDragLeave}
+      onDrop={e => {
+        e.preventDefault();
+        onDragLeave();
+        const f = e.dataTransfer.files[0];
+        if (f) onUpload(f);
+      }}
+      onPaste={e => {
+        const item = Array.from(e.clipboardData.items)
+          .find(i => i.kind === 'file' && i.type.startsWith('image/'));
+        const f = item?.getAsFile();
+        if (f) onUpload(f);
+      }}
+    >
+      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+        {label}
+      </Typography>
+      <Divider sx={{ mb: 1.5 }} />
+      {hasImage ? (
+        <Box
+          component="img"
+          src={imageUrl}
+          alt={imageAlt}
+          sx={{
+            width: '100%',
+            borderRadius: 1,
+            display: 'block',
+            mb: 1.5,
+            objectFit: 'cover',
+            maxHeight: 280,
+          }}
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          onClick={e => e.stopPropagation()}
+        />
+      ) : (
+        <Box
+          sx={{
+            height: 140,
+            bgcolor: 'action.hover',
+            borderRadius: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mb: 1.5,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">{noImageText}</Typography>
+        </Box>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const f = e.target.files?.[0];
+          if (f) onUpload(f);
+          e.target.value = '';
+        }}
+      />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+        {uploading ? (
+          <>
+            <CircularProgress size={14} />
+            <Typography variant="caption">{t('videoDetail.uploading')}</Typography>
+          </>
+        ) : (
+          <Typography variant="caption" color="text.secondary">{uploadHint}</Typography>
+        )}
+      </Box>
+    </Paper>
+  );
 }
 
 export default function VideoDetailPage() {
@@ -43,15 +162,22 @@ export default function VideoDetailPage() {
   const navigate = useNavigate();
   const notify = useNotify();
   const { t } = useTranslation();
+
   const [video, setVideo] = useState<VideoFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<EditState | null>(null);
+
   const [posterKey, setPosterKey] = useState(0);
-  const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const hiddenFileInput = useRef<HTMLInputElement>(null);
+  const [uploadingPoster, setUploadingPoster] = useState(false);
+  const [dragOverPoster, setDragOverPoster] = useState(false);
+  const posterInputRef = useRef<HTMLInputElement>(null);
+
+  const [fanartKey, setFanartKey] = useState(0);
+  const [uploadingFanart, setUploadingFanart] = useState(false);
+  const [dragOverFanart, setDragOverFanart] = useState(false);
+  const fanartInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -88,6 +214,9 @@ export default function VideoDetailPage() {
         year: form.year ? parseInt(form.year, 10) : null,
         plot: form.plot || null,
         studioName: form.studioName || null,
+        actors: form.actors
+          .filter(a => a.name.trim())
+          .map((a, i) => ({ name: a.name.trim(), role: a.role.trim() || null, order: i })),
       });
       if (res.success) {
         setVideo(res.data);
@@ -104,10 +233,15 @@ export default function VideoDetailPage() {
     }
   };
 
-  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
-  const handleUploadFile = async (file: File) => {
-    if (!ALLOWED_TYPES.includes(file.type)) {
+  const handleImageUpload = async (
+    file: File,
+    uploader: (id: number, file: File) => Promise<{ success: boolean; data: VideoFile; error?: string }>,
+    setUploading: (v: boolean) => void,
+    bumpKey: () => void,
+    successKey: string,
+    failKey: string,
+  ) => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       notify(t('videoDetail.posterInvalidType'), 'error');
       return;
     }
@@ -117,27 +251,33 @@ export default function VideoDetailPage() {
     }
     setUploading(true);
     try {
-      const res = await videosApi.uploadPoster(video!.id, file);
+      const res = await uploader(video!.id, file);
       if (res.success) {
         setVideo(res.data);
-        setPosterKey(k => k + 1);
-        notify(t('videoDetail.posterUploadSuccess'), 'success');
+        bumpKey();
+        notify(t(successKey), 'success');
       } else {
-        notify(res.error ?? t('videoDetail.posterUploadFailed'), 'error');
+        notify((res as { error?: string }).error ?? t(failKey), 'error');
       }
     } catch {
-      notify(t('videoDetail.posterUploadFailed'), 'error');
+      notify(t(failKey), 'error');
     } finally {
       setUploading(false);
     }
   };
 
-  const field = (key: keyof EditState) => ({
+  const field = (key: Exclude<keyof EditState, 'actors'>) => ({
     value: form?.[key] ?? '',
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm(prev => prev ? { ...prev, [key]: e.target.value } : prev),
     disabled: saving,
   });
+
+  const setActorField = (idx: number, field: keyof ActorEditState, value: string) =>
+    setForm(prev => prev ? {
+      ...prev,
+      actors: prev.actors.map((a, i) => i === idx ? { ...a, [field]: value } : a),
+    } : prev);
 
   if (loading) {
     return (
@@ -281,97 +421,48 @@ export default function VideoDetailPage() {
           </Paper>
         </Grid>
 
-        {/* Poster + Actors */}
+        {/* Right column: Poster + Fanart + Actors */}
         <Grid size={{ xs: 12, md: 4 }}>
           <Stack spacing={2}>
             {/* Poster Panel */}
-            <Paper
-              sx={{
-                p: 2,
-                cursor: uploading ? 'default' : 'pointer',
-                border: '2px solid',
-                borderColor: dragOver ? 'primary.main' : 'transparent',
-                transition: 'border-color 0.2s',
-                outline: 'none',
-              }}
-              tabIndex={0}
-              onClick={() => !uploading && hiddenFileInput.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={e => {
-                e.preventDefault();
-                setDragOver(false);
-                const f = e.dataTransfer.files[0];
-                if (f) handleUploadFile(f);
-              }}
-              onPaste={e => {
-                const item = Array.from(e.clipboardData.items)
-                  .find(i => i.kind === 'file' && i.type.startsWith('image/'));
-                const f = item?.getAsFile();
-                if (f) handleUploadFile(f);
-              }}
-            >
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                {t('videoDetail.fields.poster')}
-              </Typography>
-              <Divider sx={{ mb: 1.5 }} />
-              {video.hasPoster ? (
-                <Box
-                  component="img"
-                  src={`${videosApi.getPosterUrl(video.id)}?v=${posterKey}`}
-                  alt={video.title ?? video.fileName}
-                  sx={{
-                    width: '100%',
-                    borderRadius: 1,
-                    display: 'block',
-                    mb: 1.5,
-                    objectFit: 'cover',
-                    maxHeight: 360,
-                  }}
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  onClick={e => e.stopPropagation()}
-                />
-              ) : (
-                <Box
-                  sx={{
-                    height: 180,
-                    bgcolor: 'action.hover',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    mb: 1.5,
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    {t('videoDetail.noPoster')}
-                  </Typography>
-                </Box>
+            <ImageUploadPanel
+              label={t('videoDetail.fields.poster')}
+              hasImage={video.hasPoster}
+              imageUrl={`${videosApi.getPosterUrl(video.id)}?v=${posterKey}`}
+              imageAlt={video.title ?? video.fileName}
+              uploading={uploadingPoster}
+              dragOver={dragOverPoster}
+              uploadHint={t('videoDetail.uploadPoster')}
+              noImageText={t('videoDetail.noPoster')}
+              inputRef={posterInputRef}
+              onUpload={f => handleImageUpload(
+                f, videosApi.uploadPoster, setUploadingPoster,
+                () => setPosterKey(k => k + 1),
+                'videoDetail.posterUploadSuccess', 'videoDetail.posterUploadFailed',
               )}
-              <input
-                ref={hiddenFileInput}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                style={{ display: 'none' }}
-                onChange={e => {
-                  const f = e.target.files?.[0];
-                  if (f) handleUploadFile(f);
-                  e.target.value = '';
-                }}
-              />
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                {uploading ? (
-                  <>
-                    <CircularProgress size={14} />
-                    <Typography variant="caption">{t('videoDetail.uploading')}</Typography>
-                  </>
-                ) : (
-                  <Typography variant="caption" color="text.secondary">
-                    {t('videoDetail.uploadPoster')}
-                  </Typography>
-                )}
-              </Box>
-            </Paper>
+              onDragOver={() => setDragOverPoster(true)}
+              onDragLeave={() => setDragOverPoster(false)}
+            />
+
+            {/* Fanart Panel */}
+            <ImageUploadPanel
+              label={t('videoDetail.fields.fanart')}
+              hasImage={video.hasFanart}
+              imageUrl={`${videosApi.getFanartUrl(video.id)}?v=${fanartKey}`}
+              imageAlt={video.title ?? video.fileName}
+              uploading={uploadingFanart}
+              dragOver={dragOverFanart}
+              uploadHint={t('videoDetail.uploadFanart')}
+              noImageText={t('videoDetail.noFanart')}
+              inputRef={fanartInputRef}
+              onUpload={f => handleImageUpload(
+                f, videosApi.uploadFanart, setUploadingFanart,
+                () => setFanartKey(k => k + 1),
+                'videoDetail.fanartUploadSuccess', 'videoDetail.fanartUploadFailed',
+              )}
+              onDragOver={() => setDragOverFanart(true)}
+              onDragLeave={() => setDragOverFanart(false)}
+            />
 
             {/* Actors Panel */}
             <Paper sx={{ p: 2 }}>
@@ -379,19 +470,65 @@ export default function VideoDetailPage() {
                 {t('videoDetail.actors')}
               </Typography>
               <Divider sx={{ mb: 1.5 }} />
-              {video.actors && video.actors.length > 0 ? (
-                <Stack spacing={1}>
-                  {video.actors.map(actor => (
-                    <Box key={actor.id}>
-                      <Typography variant="body2">{actor.name}</Typography>
-                      {actor.role && (
-                        <Typography variant="caption" color="text.secondary">{actor.role}</Typography>
-                      )}
+              {editing && form ? (
+                <Stack spacing={1.5}>
+                  {form.actors.map((actor, idx) => (
+                    <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <TextField
+                        size="small"
+                        label={t('videoDetail.actorName')}
+                        value={actor.name}
+                        onChange={e => setActorField(idx, 'name', e.target.value)}
+                        disabled={saving}
+                        sx={{ flex: 2 }}
+                      />
+                      <TextField
+                        size="small"
+                        label={t('videoDetail.actorRole')}
+                        value={actor.role}
+                        onChange={e => setActorField(idx, 'role', e.target.value)}
+                        disabled={saving}
+                        sx={{ flex: 2 }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => setForm(prev => prev ? {
+                          ...prev,
+                          actors: prev.actors.filter((_, i) => i !== idx),
+                        } : prev)}
+                        disabled={saving}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
                     </Box>
                   ))}
+                  <Button
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => setForm(prev => prev ? {
+                      ...prev,
+                      actors: [...prev.actors, { name: '', role: '' }],
+                    } : prev)}
+                    disabled={saving}
+                  >
+                    {t('videoDetail.addActor')}
+                  </Button>
                 </Stack>
               ) : (
-                <Typography variant="body2" color="text.secondary">{t('videoDetail.noActors')}</Typography>
+                video.actors && video.actors.length > 0 ? (
+                  <Stack spacing={1}>
+                    {video.actors.map(actor => (
+                      <Box key={actor.id}>
+                        <Typography variant="body2">{actor.name}</Typography>
+                        {actor.role && (
+                          <Typography variant="caption" color="text.secondary">{actor.role}</Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.noActors')}</Typography>
+                )
               )}
             </Paper>
           </Stack>

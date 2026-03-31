@@ -85,6 +85,7 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         v.OriginalTitle = request.OriginalTitle;
         v.Year = request.Year;
         v.Plot = request.Plot;
+        v.NfoUpdatedAt = DateTime.UtcNow;
 
         if (request.StudioName is not null)
         {
@@ -99,7 +100,27 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             v.Studio = null;
         }
 
-        v.NfoUpdatedAt = DateTime.UtcNow;
+        if (request.Actors is not null)
+        {
+            db.VideoActors.RemoveRange(v.VideoActors);
+            await db.SaveChangesAsync(ct); // flush deletions before re-inserting
+            v.VideoActors.Clear();
+
+            foreach (var actorReq in request.Actors)
+            {
+                var actor = await db.Actors.FirstOrDefaultAsync(a => a.Name == actorReq.Name, ct)
+                    ?? new Actor { Name = actorReq.Name };
+                if (actor.Id == 0) db.Actors.Add(actor);
+                v.VideoActors.Add(new VideoActor
+                {
+                    VideoFile = v,
+                    Actor = actor,
+                    Role = string.IsNullOrWhiteSpace(actorReq.Role) ? null : actorReq.Role,
+                    Order = actorReq.Order,
+                });
+            }
+        }
+
         await db.SaveChangesAsync(ct);
 
         var dto = ToDto(v);
@@ -173,6 +194,66 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation("Poster uploaded for video {Id} ({FileName})", id, v.FileName);
+        return Result<VideoFileDto>.Ok(ToDto(v));
+    }
+
+    public async Task<Result<string>> GetFanartPathAsync(int id, CancellationToken ct = default)
+    {
+        var v = await db.VideoFiles.AsNoTracking()
+            .Select(x => new { x.Id, x.FilePath })
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (v is null)
+        {
+            logger.LogWarning("Video not found: {Id}", id);
+            return Result<string>.Fail("Video not found");
+        }
+
+        var fanartPath = FileSystemScanner.FanartPath(v.FilePath);
+        if (!File.Exists(fanartPath))
+            return Result<string>.Fail("Fanart not found");
+
+        return Result<string>.Ok(fanartPath);
+    }
+
+    public async Task<Result<VideoFileDto>> UploadFanartAsync(
+        int id, Stream imageStream, string contentType, long contentLength,
+        CancellationToken ct = default)
+    {
+        var v = await db.VideoFiles
+            .Include(x => x.Studio)
+            .Include(x => x.VideoActors).ThenInclude(va => va.Actor)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (v is null)
+        {
+            logger.LogWarning("Video not found for fanart upload: {Id}", id);
+            return Result<VideoFileDto>.Fail("Video not found");
+        }
+
+        if (contentLength > 0 && contentLength > MaxPosterBytes)
+            return Result<VideoFileDto>.Fail("File too large (max 10 MB)");
+
+        if (!AllowedMimeTypes.Contains(contentType.ToLowerInvariant()))
+            return Result<VideoFileDto>.Fail("Invalid file type. Only JPEG, PNG, and WebP are allowed");
+
+        var destPath = FileSystemScanner.FanartPath(v.FilePath);
+        try
+        {
+            await using var fs = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await imageStream.CopyToAsync(fs, ct);
+        }
+        catch (IOException ex)
+        {
+            logger.LogError(ex, "Failed to save fanart for video {Id}", id);
+            try { File.Delete(destPath); } catch { /* ignore cleanup errors */ }
+            return Result<VideoFileDto>.Fail("Failed to save fanart file");
+        }
+
+        v.HasFanart = true;
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation("Fanart uploaded for video {Id} ({FileName})", id, v.FileName);
         return Result<VideoFileDto>.Ok(ToDto(v));
     }
 
