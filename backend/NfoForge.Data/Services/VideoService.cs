@@ -30,14 +30,34 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             query = query.Where(v => v.Title!.Contains(filter.Search) || v.FileName.Contains(filter.Search));
 
         var total = await query.CountAsync(ct);
-        var items = await query
-            .OrderBy(v => v.FileName)
+
+        IQueryable<VideoFile> sorted = (filter.SortBy, filter.SortDesc) switch
+        {
+            ("title", false)          => query.OrderBy(v => v.Title ?? v.FileName),
+            ("title", true)           => query.OrderByDescending(v => v.Title ?? v.FileName),
+            ("year", false)           => query.OrderBy(v => v.Year),
+            ("year", true)            => query.OrderByDescending(v => v.Year),
+            ("studioName", false)     => query.OrderBy(v => v.Studio != null ? v.Studio.Name : null),
+            ("studioName", true)      => query.OrderByDescending(v => v.Studio != null ? v.Studio.Name : null),
+            ("fileSizeBytes", false)  => query.OrderBy(v => v.FileSizeBytes),
+            ("fileSizeBytes", true)   => query.OrderByDescending(v => v.FileSizeBytes),
+            ("scannedAt", false)      => query.OrderBy(v => v.ScannedAt),
+            ("scannedAt", true)       => query.OrderByDescending(v => v.ScannedAt),
+            ("fileModifiedAt", false) => query.OrderBy(v => v.FileModifiedAt),
+            ("fileModifiedAt", true)  => query.OrderByDescending(v => v.FileModifiedAt),
+            ("originalTitle", false)  => query.OrderBy(v => v.OriginalTitle),
+            ("originalTitle", true)   => query.OrderByDescending(v => v.OriginalTitle),
+            ("fileName", true)        => query.OrderByDescending(v => v.FileName),
+            _                         => query.OrderBy(v => v.FileName),
+        };
+
+        var items = await sorted
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(v => new VideoFileDto(
                 v.Id, v.LibraryId, v.FileName, v.FilePath, v.FileSizeBytes,
                 v.HasNfo, v.HasPoster, v.HasFanart, v.Title, v.OriginalTitle, v.Year, v.Plot,
-                v.Studio != null ? v.Studio.Name : null, v.ScannedAt, null))
+                v.Studio != null ? v.Studio.Name : null, v.ScannedAt, null, v.FileModifiedAt))
             .ToListAsync(ct);
 
         logger.LogDebug("GetAll videos: page={Page}, pageSize={PageSize}, total={Total}", page, pageSize, total);
@@ -309,6 +329,6 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         return new VideoFileDto(
             v.Id, v.LibraryId, v.FileName, v.FilePath, v.FileSizeBytes,
             v.HasNfo, v.HasPoster, v.HasFanart, v.Title, v.OriginalTitle, v.Year, v.Plot,
-            v.Studio?.Name, v.ScannedAt, actors);
+            v.Studio?.Name, v.ScannedAt, actors, v.FileModifiedAt);
     }
 }

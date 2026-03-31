@@ -32,7 +32,8 @@
       "size": "大小",
       "originalTitle": "原标题",
       "plot": "简介",
-      "scannedAt": "扫描时间"
+      "scannedAt": "扫描时间",
+      "fileModifiedAt": "文件日期"
     }
   },
   "videoDetail": {

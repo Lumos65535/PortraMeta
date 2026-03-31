@@ -19,7 +19,8 @@ public record VideoFileDto(
     string? Plot,
     string? StudioName,
     DateTime ScannedAt,
-    IReadOnlyList<ActorDto>? Actors = null
+    IReadOnlyList<ActorDto>? Actors = null,
+    DateTime? FileModifiedAt = null
 );
 
 public record VideoFileFilter(
@@ -27,7 +28,9 @@ public record VideoFileFilter(
     bool? HasPoster = null,
     int? LibraryId = null,
     int? StudioId = null,
-    string? Search = null
+    string? Search = null,
+    string? SortBy = null,
+    bool SortDesc = false
 );
 
 public record ActorRequest(string Name, string? Role, int Order);

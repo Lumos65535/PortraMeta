@@ -25,6 +25,7 @@ public class VideoFile
 
     public DateTime ScannedAt { get; set; } = DateTime.UtcNow;
     public DateTime? NfoUpdatedAt { get; set; }
+    public DateTime? FileModifiedAt { get; set; }
 
     public ICollection<VideoActor> VideoActors { get; set; } = [];
 }

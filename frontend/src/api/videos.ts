@@ -24,6 +24,7 @@ export interface VideoFile {
   studioName: string | null;
   scannedAt: string;
   actors: Actor[] | null;
+  fileModifiedAt: string | null;
 }
 
 export interface PagedResult<T> {
@@ -41,6 +42,8 @@ export interface VideoFilter {
   search?: string;
   page?: number;
   page_size?: number;
+  sort_by?: string;
+  sort_desc?: boolean;
 }
 
 export interface ActorRequest {

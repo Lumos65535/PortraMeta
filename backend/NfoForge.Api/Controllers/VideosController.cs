@@ -16,9 +16,11 @@ public class VideosController(IVideoService videoService) : ControllerBase
         [FromQuery] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int page_size = 50,
+        [FromQuery] string? sort_by = null,
+        [FromQuery] bool sort_desc = false,
         CancellationToken ct = default)
     {
-        var filter = new VideoFileFilter(has_nfo, has_poster, library_id, studio_id, search);
+        var filter = new VideoFileFilter(has_nfo, has_poster, library_id, studio_id, search, sort_by, sort_desc);
         var result = await videoService.GetAllAsync(filter, page, page_size, ct);
         return result.Success
             ? Ok(new { data = result.Data, success = true })

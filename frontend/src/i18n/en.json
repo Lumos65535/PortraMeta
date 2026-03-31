@@ -32,7 +32,8 @@
       "size": "Size",
       "originalTitle": "Original Title",
       "plot": "Plot",
-      "scannedAt": "Scanned At"
+      "scannedAt": "Scanned At",
+      "fileModifiedAt": "File Date"
     }
   },
   "videoDetail": {

@@ -10,6 +10,7 @@ import {
   type GridColDef,
   type GridColumnVisibilityModel,
   type GridPaginationModel,
+  type GridSortModel,
 } from '@mui/x-data-grid';
 import { videosApi } from '../api/videos';
 import type { PagedResult, VideoFile } from '../api/videos';
@@ -31,6 +32,7 @@ const DEFAULT_VISIBILITY: GridColumnVisibilityModel = {
   originalTitle: false,
   plot: false,
   scannedAt: false,
+  fileModifiedAt: false,
 };
 
 const COLUMN_DEFAULT_WIDTHS: Record<string, number> = {
@@ -46,6 +48,7 @@ const COLUMN_DEFAULT_WIDTHS: Record<string, number> = {
   originalTitle: 260,
   plot: 320,
   scannedAt: 200,
+  fileModifiedAt: 200,
 };
 
 function formatBytes(bytes: number) {
@@ -58,16 +61,20 @@ function formatBytes(bytes: number) {
 function readGridSettings(): {
   visibilityModel: GridColumnVisibilityModel;
   widthModel: Record<string, number>;
+  sortModel: GridSortModel;
+  page: number;
 } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { visibilityModel: DEFAULT_VISIBILITY, widthModel: {} };
+      return { visibilityModel: DEFAULT_VISIBILITY, widthModel: {}, sortModel: [], page: 1 };
     }
 
     const parsed = JSON.parse(raw) as {
       visibilityModel?: GridColumnVisibilityModel;
       widthModel?: Record<string, number>;
+      sortModel?: GridSortModel;
+      page?: number;
     };
 
     return {
@@ -76,9 +83,11 @@ function readGridSettings(): {
         ...(parsed.visibilityModel ?? {}),
       },
       widthModel: parsed.widthModel ?? {},
+      sortModel: parsed.sortModel ?? [],
+      page: parsed.page ?? 1,
     };
   } catch {
-    return { visibilityModel: DEFAULT_VISIBILITY, widthModel: {} };
+    return { visibilityModel: DEFAULT_VISIBILITY, widthModel: {}, sortModel: [], page: 1 };
   }
 }
 
@@ -88,7 +97,8 @@ export default function VideosPage() {
   const { t } = useTranslation();
   const [result, setResult] = useState<PagedResult<VideoFile> | null>(null);
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => readGridSettings().page);
+  const [sortModel, setSortModel] = useState<GridSortModel>(() => readGridSettings().sortModel);
   const [loading, setLoading] = useState(true);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,6 +120,8 @@ export default function VideosPage() {
         JSON.stringify({
           visibilityModel: columnVisibilityModel,
           widthModel: columnWidthModel,
+          sortModel,
+          page,
         }),
       );
     }, 200);
@@ -119,15 +131,19 @@ export default function VideosPage() {
         clearTimeout(persistRef.current);
       }
     };
-  }, [columnVisibilityModel, columnWidthModel]);
+  }, [columnVisibilityModel, columnWidthModel, sortModel, page]);
 
-  const load = async (searchValue: string, pageNum: number) => {
+  const load = async (searchValue: string, pageNum: number, sort: GridSortModel) => {
     setLoading(true);
     try {
+      const sortField = sort[0]?.field;
+      const sortDir = sort[0]?.sort;
       const res = await videosApi.getAll({
         search: searchValue || undefined,
         page: pageNum,
         page_size: PAGE_SIZE,
+        sort_by: sortField,
+        sort_desc: sortDir === 'desc' ? true : undefined,
       });
       if (res.success) setResult(res.data);
     } catch (err) {
@@ -138,19 +154,19 @@ export default function VideosPage() {
   };
 
   useEffect(() => {
-    load('', 1);
+    load(search, page, sortModel);
   }, []);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
     setPage(1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => load(value, 1), 300);
+    debounceRef.current = setTimeout(() => load(value, 1, sortModel), 300);
   };
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
     setPage(newPage);
-    load(search, newPage);
+    load(search, newPage, sortModel);
   };
 
   const handleGridPaginationChange = (model: GridPaginationModel) => {
@@ -158,6 +174,12 @@ export default function VideosPage() {
     if (newPage !== page) {
       handlePageChange({} as React.ChangeEvent<unknown>, newPage);
     }
+  };
+
+  const handleSortModelChange = (model: GridSortModel) => {
+    setSortModel(model);
+    setPage(1);
+    load(search, 1, model);
   };
 
   const setColumnVisibility = (field: string, checked: boolean) => {
@@ -261,6 +283,13 @@ export default function VideosPage() {
       width: columnWidthModel.scannedAt ?? COLUMN_DEFAULT_WIDTHS.scannedAt,
       valueGetter: (_value, row) => new Date(row.scannedAt).toLocaleString(),
     },
+    {
+      field: 'fileModifiedAt',
+      headerName: t('videos.columns.fileModifiedAt'),
+      minWidth: 160,
+      width: columnWidthModel.fileModifiedAt ?? COLUMN_DEFAULT_WIDTHS.fileModifiedAt,
+      valueGetter: (_value, row) => row.fileModifiedAt ? new Date(row.fileModifiedAt).toLocaleString() : '—',
+    },
   ];
 
   return (
@@ -354,6 +383,9 @@ export default function VideosPage() {
               onPaginationModelChange={handleGridPaginationChange}
               pageSizeOptions={[PAGE_SIZE]}
               rowCount={result?.total ?? 0}
+              sortingMode="server"
+              sortModel={sortModel}
+              onSortModelChange={handleSortModelChange}
               localeText={{
                 noRowsLabel: t('videos.empty'),
               }}

@@ -172,6 +172,7 @@ public class LibraryService(
                     existing.HasNfo = hasNfo;
                     existing.HasPoster = hasPoster;
                     existing.HasFanart = hasFanart;
+                    existing.FileModifiedAt ??= file.LastWriteTimeUtc;
 
                     if (needsNfoParse)
                     {
@@ -236,7 +237,8 @@ public class LibraryService(
                     HasNfo = hasNfo,
                     HasPoster = hasPoster,
                     HasFanart = hasFanart,
-                    ScannedAt = DateTime.UtcNow
+                    ScannedAt = DateTime.UtcNow,
+                    FileModifiedAt = file.LastWriteTimeUtc
                 };
 
                 if (videoFile.HasNfo)
