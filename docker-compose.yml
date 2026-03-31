@@ -10,7 +10,9 @@ services:
       - ${DB_PATH:-./data}:/data
     environment:
       - Database__Path=/data/nfoforge.db
-      - Cors__AllowedOrigin=http://localhost:3000
+      - Cors__AllowedOrigins=http://localhost:3000
+      - Cors__AllowAnyOrigin=false
+      # Auth__ApiKey=your-secret-key   # uncomment to enable API key authentication
       - Urls=http://0.0.0.0:5000
     restart: unless-stopped
 
