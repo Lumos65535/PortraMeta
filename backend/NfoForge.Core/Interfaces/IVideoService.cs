@@ -44,4 +44,8 @@ public interface IVideoService
         VideoFileFilter filter, int page, int pageSize, CancellationToken ct = default);
     Task<Result<VideoFileDto>> GetByIdAsync(int id, CancellationToken ct = default);
     Task<Result<VideoFileDto>> UpdateAsync(int id, UpdateVideoRequest request, CancellationToken ct = default);
+    Task<Result<string>> GetPosterPathAsync(int id, CancellationToken ct = default);
+    Task<Result<VideoFileDto>> UploadPosterAsync(
+        int id, Stream imageStream, string contentType, long contentLength,
+        CancellationToken ct = default);
 }

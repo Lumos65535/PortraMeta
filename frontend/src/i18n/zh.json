@@ -49,6 +49,13 @@
     "saveSuccess": "保存成功",
     "saveFailed": "保存失败",
     "loadFailed": "加载失败",
+    "noPoster": "暂无海报图片",
+    "uploadPoster": "点击、拖拽或粘贴图片上传海报",
+    "uploading": "上传中…",
+    "posterUploadSuccess": "海报上传成功",
+    "posterUploadFailed": "海报上传失败",
+    "posterTooLarge": "文件过大（最大 10 MB）",
+    "posterInvalidType": "仅支持 JPEG、PNG、WebP 格式",
     "fields": {
       "path": "路径",
       "size": "大小",

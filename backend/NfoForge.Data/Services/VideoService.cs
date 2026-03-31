@@ -9,6 +9,10 @@ namespace NfoForge.Data.Services;
 
 public class VideoService(AppDbContext db, INfoService nfoService, ILogger<VideoService> logger) : IVideoService
 {
+    private const long MaxPosterBytes = 10 * 1024 * 1024;
+    private static readonly HashSet<string> AllowedMimeTypes =
+        ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
     public async Task<Result<PagedResult<VideoFileDto>>> GetAllAsync(
         VideoFileFilter filter, int page, int pageSize, CancellationToken ct = default)
     {
@@ -110,6 +114,66 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
         logger.LogInformation("Video updated and NFO written: {Id} ({FileName})", id, v.FileName);
         return Result<VideoFileDto>.Ok(dto);
+    }
+
+    public async Task<Result<string>> GetPosterPathAsync(int id, CancellationToken ct = default)
+    {
+        var v = await db.VideoFiles.AsNoTracking()
+            .Select(x => new { x.Id, x.FilePath })
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (v is null)
+        {
+            logger.LogWarning("Video not found: {Id}", id);
+            return Result<string>.Fail("Video not found");
+        }
+
+        var posterPath = FileSystemScanner.PosterPath(v.FilePath);
+        if (!File.Exists(posterPath))
+            return Result<string>.Fail("Poster not found");
+
+        return Result<string>.Ok(posterPath);
+    }
+
+    public async Task<Result<VideoFileDto>> UploadPosterAsync(
+        int id, Stream imageStream, string contentType, long contentLength,
+        CancellationToken ct = default)
+    {
+        var v = await db.VideoFiles
+            .Include(x => x.Studio)
+            .Include(x => x.VideoActors).ThenInclude(va => va.Actor)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (v is null)
+        {
+            logger.LogWarning("Video not found for poster upload: {Id}", id);
+            return Result<VideoFileDto>.Fail("Video not found");
+        }
+
+        if (contentLength > 0 && contentLength > MaxPosterBytes)
+            return Result<VideoFileDto>.Fail("File too large (max 10 MB)");
+
+        if (!AllowedMimeTypes.Contains(contentType.ToLowerInvariant()))
+            return Result<VideoFileDto>.Fail("Invalid file type. Only JPEG, PNG, and WebP are allowed");
+
+        var destPath = FileSystemScanner.PosterPath(v.FilePath);
+        try
+        {
+            await using var fs = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await imageStream.CopyToAsync(fs, ct);
+        }
+        catch (IOException ex)
+        {
+            logger.LogError(ex, "Failed to save poster for video {Id}", id);
+            try { File.Delete(destPath); } catch { /* ignore cleanup errors */ }
+            return Result<VideoFileDto>.Fail("Failed to save poster file");
+        }
+
+        v.HasPoster = true;
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation("Poster uploaded for video {Id} ({FileName})", id, v.FileName);
+        return Result<VideoFileDto>.Ok(ToDto(v));
     }
 
     private static VideoFileDto ToDto(VideoFile v)

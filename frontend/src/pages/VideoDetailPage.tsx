@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box, Button, Chip, CircularProgress, Divider, Grid,
@@ -48,6 +48,10 @@ export default function VideoDetailPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<EditState | null>(null);
+  const [posterKey, setPosterKey] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const hiddenFileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -97,6 +101,34 @@ export default function VideoDetailPage() {
       notify((err as Error).message, 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+  const handleUploadFile = async (file: File) => {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      notify(t('videoDetail.posterInvalidType'), 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      notify(t('videoDetail.posterTooLarge'), 'error');
+      return;
+    }
+    setUploading(true);
+    try {
+      const res = await videosApi.uploadPoster(video!.id, file);
+      if (res.success) {
+        setVideo(res.data);
+        setPosterKey(k => k + 1);
+        notify(t('videoDetail.posterUploadSuccess'), 'success');
+      } else {
+        notify(res.error ?? t('videoDetail.posterUploadFailed'), 'error');
+      }
+    } catch {
+      notify(t('videoDetail.posterUploadFailed'), 'error');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -249,28 +281,120 @@ export default function VideoDetailPage() {
           </Paper>
         </Grid>
 
-        {/* Actors */}
+        {/* Poster + Actors */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              {t('videoDetail.actors')}
-            </Typography>
-            <Divider sx={{ mb: 1.5 }} />
-            {video.actors && video.actors.length > 0 ? (
-              <Stack spacing={1}>
-                {video.actors.map(actor => (
-                  <Box key={actor.id}>
-                    <Typography variant="body2">{actor.name}</Typography>
-                    {actor.role && (
-                      <Typography variant="caption" color="text.secondary">{actor.role}</Typography>
-                    )}
-                  </Box>
-                ))}
-              </Stack>
-            ) : (
-              <Typography variant="body2" color="text.secondary">{t('videoDetail.noActors')}</Typography>
-            )}
-          </Paper>
+          <Stack spacing={2}>
+            {/* Poster Panel */}
+            <Paper
+              sx={{
+                p: 2,
+                cursor: uploading ? 'default' : 'pointer',
+                border: '2px solid',
+                borderColor: dragOver ? 'primary.main' : 'transparent',
+                transition: 'border-color 0.2s',
+                outline: 'none',
+              }}
+              tabIndex={0}
+              onClick={() => !uploading && hiddenFileInput.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => {
+                e.preventDefault();
+                setDragOver(false);
+                const f = e.dataTransfer.files[0];
+                if (f) handleUploadFile(f);
+              }}
+              onPaste={e => {
+                const item = Array.from(e.clipboardData.items)
+                  .find(i => i.kind === 'file' && i.type.startsWith('image/'));
+                const f = item?.getAsFile();
+                if (f) handleUploadFile(f);
+              }}
+            >
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                {t('videoDetail.fields.poster')}
+              </Typography>
+              <Divider sx={{ mb: 1.5 }} />
+              {video.hasPoster ? (
+                <Box
+                  component="img"
+                  src={`${videosApi.getPosterUrl(video.id)}?v=${posterKey}`}
+                  alt={video.title ?? video.fileName}
+                  sx={{
+                    width: '100%',
+                    borderRadius: 1,
+                    display: 'block',
+                    mb: 1.5,
+                    objectFit: 'cover',
+                    maxHeight: 360,
+                  }}
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  onClick={e => e.stopPropagation()}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    height: 180,
+                    bgcolor: 'action.hover',
+                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 1.5,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    {t('videoDetail.noPoster')}
+                  </Typography>
+                </Box>
+              )}
+              <input
+                ref={hiddenFileInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadFile(f);
+                  e.target.value = '';
+                }}
+              />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                {uploading ? (
+                  <>
+                    <CircularProgress size={14} />
+                    <Typography variant="caption">{t('videoDetail.uploading')}</Typography>
+                  </>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    {t('videoDetail.uploadPoster')}
+                  </Typography>
+                )}
+              </Box>
+            </Paper>
+
+            {/* Actors Panel */}
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                {t('videoDetail.actors')}
+              </Typography>
+              <Divider sx={{ mb: 1.5 }} />
+              {video.actors && video.actors.length > 0 ? (
+                <Stack spacing={1}>
+                  {video.actors.map(actor => (
+                    <Box key={actor.id}>
+                      <Typography variant="body2">{actor.name}</Typography>
+                      {actor.role && (
+                        <Typography variant="caption" color="text.secondary">{actor.role}</Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <Typography variant="body2" color="text.secondary">{t('videoDetail.noActors')}</Typography>
+              )}
+            </Paper>
+          </Stack>
         </Grid>
       </Grid>
     </Box>

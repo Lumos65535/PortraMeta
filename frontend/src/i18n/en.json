@@ -49,6 +49,13 @@
     "saveSuccess": "Saved successfully",
     "saveFailed": "Save failed",
     "loadFailed": "Load failed",
+    "noPoster": "No poster image",
+    "uploadPoster": "Click, drag, or paste to upload poster",
+    "uploading": "Uploading…",
+    "posterUploadSuccess": "Poster uploaded successfully",
+    "posterUploadFailed": "Poster upload failed",
+    "posterTooLarge": "File too large (max 10 MB)",
+    "posterInvalidType": "Only JPEG, PNG, WebP are supported",
     "fields": {
       "path": "Path",
       "size": "Size",

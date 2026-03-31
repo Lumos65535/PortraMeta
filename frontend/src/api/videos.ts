@@ -58,4 +58,12 @@ export const videosApi = {
     api.get<ApiResponse<VideoFile>>(`/videos/${id}`).then(r => r.data),
   update: (id: number, data: UpdateVideoRequest) =>
     api.put<ApiResponse<VideoFile>>(`/videos/${id}`, data).then(r => r.data),
+  getPosterUrl: (id: number): string => `/api/videos/${id}/poster`,
+  uploadPoster: (id: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api
+      .post<ApiResponse<VideoFile>>(`/videos/${id}/poster`, formData)
+      .then(r => r.data);
+  },
 };
