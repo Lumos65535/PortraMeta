@@ -64,6 +64,15 @@
     "fanartUploadSuccess": "Fanart uploaded successfully",
     "fanartUploadFailed": "Fanart upload failed",
     "replaceImage": "Replace Image",
+    "uploadDialog": {
+      "title": "Upload {{label}}",
+      "dropHint": "Drop image here, or",
+      "uploadFile": "click to upload",
+      "pasteHint": "You can also paste an image from clipboard (Ctrl+V)",
+      "or": "or",
+      "pathPlaceholder": "Paste local file path, e.g. /path/to/image.jpg",
+      "pathConfirm": "Confirm"
+    },
     "fields": {
       "path": "Path",
       "size": "Size",

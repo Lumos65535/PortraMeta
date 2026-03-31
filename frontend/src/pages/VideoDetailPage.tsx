@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Box, Button, Chip, CircularProgress, Divider, Grid, IconButton,
-  Paper, Stack, TextField, Typography,
+  Box, Button, Chip, CircularProgress, Dialog, DialogContent, DialogTitle,
+  Divider, Grid, IconButton, Paper, Stack, TextField, Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -49,26 +50,177 @@ function toEditState(v: VideoFile): EditState {
   };
 }
 
-// Compact image panel used in the top-row images section
+// ── Upload Dialog ─────────────────────────────────────────────────────────────
+interface ImageUploadDialogProps {
+  open: boolean;
+  label: string;
+  onClose: () => void;
+  onFile: (file: File) => Promise<boolean>;
+  onPathImport: (path: string) => Promise<boolean>;
+}
+
+function ImageUploadDialog({ open, label, onClose, onFile, onPathImport }: ImageUploadDialogProps) {
+  const { t } = useTranslation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [pathValue, setPathValue] = useState('');
+  const [pathSubmitting, setPathSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setPathValue('');
+      setTimeout(() => dropZoneRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  const busy = submitting || pathSubmitting;
+
+  const handleFile = async (f: File) => {
+    if (!ALLOWED_IMAGE_TYPES.includes(f.type)) return;
+    setSubmitting(true);
+    const ok = await onFile(f);
+    setSubmitting(false);
+    if (ok) onClose();
+  };
+
+  const handlePathConfirm = async () => {
+    const p = pathValue.trim();
+    if (!p) return;
+    setPathSubmitting(true);
+    const ok = await onPathImport(p);
+    setPathSubmitting(false);
+    if (ok) onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+        <Typography variant="h6">{t('videoDetail.uploadDialog.title', { label })}</Typography>
+        <IconButton size="small" onClick={onClose} disabled={busy}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent>
+        {/* Drop zone */}
+        <Box
+          ref={dropZoneRef}
+          tabIndex={0}
+          sx={{
+            border: '2px dashed',
+            borderColor: dragOver ? 'primary.main' : 'divider',
+            borderRadius: 2,
+            minHeight: 130,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
+            cursor: submitting ? 'default' : 'pointer',
+            transition: 'border-color 0.2s, background-color 0.2s',
+            bgcolor: dragOver ? 'action.hover' : 'transparent',
+            outline: 'none',
+          }}
+          onClick={() => !submitting && fileInputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => {
+            e.preventDefault();
+            setDragOver(false);
+            const f = e.dataTransfer.files[0];
+            if (f && !busy) handleFile(f);
+          }}
+          onPaste={e => {
+            const item = Array.from(e.clipboardData.items)
+              .find(i => i.kind === 'file' && i.type.startsWith('image/'));
+            const f = item?.getAsFile();
+            if (f && !busy) handleFile(f);
+          }}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={e => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              e.target.value = '';
+            }}
+          />
+          {submitting ? (
+            <CircularProgress size={28} />
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                {t('videoDetail.uploadDialog.dropHint')}{' '}
+                <Box component="span" sx={{ color: 'primary.main', textDecoration: 'underline' }}>
+                  {t('videoDetail.uploadDialog.uploadFile')}
+                </Box>
+              </Typography>
+              <Typography variant="caption" color="text.disabled">
+                {t('videoDetail.uploadDialog.pasteHint')}
+              </Typography>
+            </>
+          )}
+        </Box>
+
+        {/* Divider */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 2 }}>
+          <Divider sx={{ flex: 1 }} />
+          <Typography variant="caption" color="text.secondary">
+            {t('videoDetail.uploadDialog.or')}
+          </Typography>
+          <Divider sx={{ flex: 1 }} />
+        </Box>
+
+        {/* Path input */}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder={t('videoDetail.uploadDialog.pathPlaceholder')}
+            value={pathValue}
+            onChange={e => setPathValue(e.target.value)}
+            disabled={busy}
+            onKeyDown={e => { if (e.key === 'Enter') handlePathConfirm(); }}
+          />
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handlePathConfirm}
+            disabled={!pathValue.trim() || busy}
+            sx={{ whiteSpace: 'nowrap', flexShrink: 0, minWidth: 64 }}
+          >
+            {pathSubmitting
+              ? <CircularProgress size={16} color="inherit" />
+              : t('videoDetail.uploadDialog.pathConfirm')}
+          </Button>
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Compact image panel ────────────────────────────────────────────────────────
 interface CompactImagePanelProps {
   label: string;
   hasImage: boolean;
   imageUrl: string;
   imageAlt: string;
-  uploading: boolean;
   dragOver: boolean;
-  uploadHint: string;
   noImageText: string;
   aspectRatio: string;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  onUpload: (file: File) => void;
+  onOpenDialog: () => void;
+  onDrop: (file: File) => void;
   onDragOver: () => void;
   onDragLeave: () => void;
 }
 
 function CompactImagePanel({
-  label, hasImage, imageUrl, imageAlt, uploading, dragOver,
-  uploadHint, noImageText, aspectRatio, inputRef, onUpload, onDragOver, onDragLeave,
+  label, hasImage, imageUrl, imageAlt, dragOver,
+  noImageText, aspectRatio, onOpenDialog, onDrop, onDragOver, onDragLeave,
 }: CompactImagePanelProps) {
   const { t } = useTranslation();
   return (
@@ -80,39 +232,22 @@ function CompactImagePanel({
         aspectRatio,
         overflow: 'hidden',
         outline: 'none',
-        cursor: hasImage || uploading ? 'default' : 'pointer',
+        cursor: 'pointer',
         border: '1px solid',
         borderColor: dragOver ? 'primary.main' : 'divider',
         transition: 'border-color 0.2s',
       }}
       tabIndex={0}
-      onClick={() => !hasImage && !uploading && inputRef.current?.click()}
+      onClick={onOpenDialog}
       onDragOver={e => { e.preventDefault(); onDragOver(); }}
       onDragLeave={onDragLeave}
       onDrop={e => {
         e.preventDefault();
         onDragLeave();
         const f = e.dataTransfer.files[0];
-        if (f) onUpload(f);
-      }}
-      onPaste={e => {
-        const item = Array.from(e.clipboardData.items)
-          .find(i => i.kind === 'file' && i.type.startsWith('image/'));
-        const f = item?.getAsFile();
-        if (f) onUpload(f);
+        if (f) onDrop(f);
       }}
     >
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        style={{ display: 'none' }}
-        onChange={e => {
-          const f = e.target.files?.[0];
-          if (f) onUpload(f);
-          e.target.value = '';
-        }}
-      />
       {/* Header bar: label + action */}
       <Box sx={{
         px: 1.5, py: 0.5, flexShrink: 0,
@@ -123,21 +258,16 @@ function CompactImagePanel({
         <Typography variant="caption" color="text.secondary" fontWeight={500}>
           {label}
         </Typography>
-        {uploading ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <CircularProgress size={12} />
-            <Typography variant="caption">{t('videoDetail.uploading')}</Typography>
-          </Box>
-        ) : hasImage ? (
+        {hasImage && (
           <Button
             size="small"
             variant="text"
             sx={{ minWidth: 0, py: 0, px: 0.5, fontSize: '0.7rem', lineHeight: 1.5 }}
-            onClick={e => { e.stopPropagation(); inputRef.current?.click(); }}
+            onClick={e => { e.stopPropagation(); onOpenDialog(); }}
           >
             {t('videoDetail.replaceImage')}
           </Button>
-        ) : null}
+        )}
       </Box>
       {/* Image / placeholder */}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', bgcolor: 'background.default' }}>
@@ -157,9 +287,6 @@ function CompactImagePanel({
           }}>
             <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
               {noImageText}
-            </Typography>
-            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem', textAlign: 'center' }}>
-              {uploadHint}
             </Typography>
           </Box>
         )}
@@ -181,14 +308,12 @@ export default function VideoDetailPage() {
   const [form, setForm] = useState<EditState | null>(null);
 
   const [posterKey, setPosterKey] = useState(0);
-  const [uploadingPoster, setUploadingPoster] = useState(false);
   const [dragOverPoster, setDragOverPoster] = useState(false);
-  const posterInputRef = useRef<HTMLInputElement>(null);
 
   const [fanartKey, setFanartKey] = useState(0);
-  const [uploadingFanart, setUploadingFanart] = useState(false);
   const [dragOverFanart, setDragOverFanart] = useState(false);
-  const fanartInputRef = useRef<HTMLInputElement>(null);
+
+  const [dialogTarget, setDialogTarget] = useState<'poster' | 'fanart' | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -247,33 +372,52 @@ export default function VideoDetailPage() {
   const handleImageUpload = async (
     file: File,
     uploader: (id: number, file: File) => Promise<{ success: boolean; data: VideoFile; error?: string }>,
-    setUploading: (v: boolean) => void,
     bumpKey: () => void,
     successKey: string,
     failKey: string,
-  ) => {
+  ): Promise<boolean> => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       notify(t('videoDetail.posterInvalidType'), 'error');
-      return;
+      return false;
     }
     if (file.size > 10 * 1024 * 1024) {
       notify(t('videoDetail.posterTooLarge'), 'error');
-      return;
+      return false;
     }
-    setUploading(true);
     try {
       const res = await uploader(video!.id, file);
       if (res.success) {
         setVideo(res.data);
         bumpKey();
         notify(t(successKey), 'success');
+        return true;
       } else {
         notify((res as { error?: string }).error ?? t(failKey), 'error');
+        return false;
       }
     } catch {
       notify(t(failKey), 'error');
-    } finally {
-      setUploading(false);
+      return false;
+    }
+  };
+
+  const handlePathImport = async (path: string): Promise<boolean> => {
+    try {
+      const importer = dialogTarget === 'fanart' ? videosApi.importFanartFromPath : videosApi.importPosterFromPath;
+      const res = await importer(video!.id, path);
+      if (res.success) {
+        setVideo(res.data);
+        if (dialogTarget === 'fanart') setFanartKey(k => k + 1);
+        else setPosterKey(k => k + 1);
+        notify(t(dialogTarget === 'fanart' ? 'videoDetail.fanartUploadSuccess' : 'videoDetail.posterUploadSuccess'), 'success');
+        return true;
+      } else {
+        notify(res.error ?? t(dialogTarget === 'fanart' ? 'videoDetail.fanartUploadFailed' : 'videoDetail.posterUploadFailed'), 'error');
+        return false;
+      }
+    } catch (err) {
+      notify((err as Error).message, 'error');
+      return false;
     }
   };
 
@@ -498,15 +642,12 @@ export default function VideoDetailPage() {
               hasImage={video.hasPoster}
               imageUrl={`${videosApi.getPosterUrl(video.id)}?v=${posterKey}`}
               imageAlt={video.title ?? video.fileName}
-              uploading={uploadingPoster}
               dragOver={dragOverPoster}
-              uploadHint={t('videoDetail.uploadPoster')}
               noImageText={t('videoDetail.noPoster')}
               aspectRatio="3/4"
-              inputRef={posterInputRef}
-              onUpload={f => handleImageUpload(
-                f, videosApi.uploadPoster, setUploadingPoster,
-                () => setPosterKey(k => k + 1),
+              onOpenDialog={() => setDialogTarget('poster')}
+              onDrop={f => handleImageUpload(
+                f, videosApi.uploadPoster, () => setPosterKey(k => k + 1),
                 'videoDetail.posterUploadSuccess', 'videoDetail.posterUploadFailed',
               )}
               onDragOver={() => setDragOverPoster(true)}
@@ -519,15 +660,12 @@ export default function VideoDetailPage() {
               hasImage={video.hasFanart}
               imageUrl={`${videosApi.getFanartUrl(video.id)}?v=${fanartKey}`}
               imageAlt={video.title ?? video.fileName}
-              uploading={uploadingFanart}
               dragOver={dragOverFanart}
-              uploadHint={t('videoDetail.uploadFanart')}
               noImageText={t('videoDetail.noFanart')}
               aspectRatio="16/9"
-              inputRef={fanartInputRef}
-              onUpload={f => handleImageUpload(
-                f, videosApi.uploadFanart, setUploadingFanart,
-                () => setFanartKey(k => k + 1),
+              onOpenDialog={() => setDialogTarget('fanart')}
+              onDrop={f => handleImageUpload(
+                f, videosApi.uploadFanart, () => setFanartKey(k => k + 1),
                 'videoDetail.fanartUploadSuccess', 'videoDetail.fanartUploadFailed',
               )}
               onDragOver={() => setDragOverFanart(true)}
@@ -536,6 +674,21 @@ export default function VideoDetailPage() {
           </Stack>
         </Grid>
       </Grid>
+
+      {/* Image upload dialog */}
+      <ImageUploadDialog
+        open={dialogTarget !== null}
+        label={dialogTarget === 'fanart' ? t('videoDetail.fields.fanart') : t('videoDetail.fields.poster')}
+        onClose={() => setDialogTarget(null)}
+        onFile={async f => handleImageUpload(
+          f,
+          dialogTarget === 'fanart' ? videosApi.uploadFanart : videosApi.uploadPoster,
+          () => { if (dialogTarget === 'fanart') setFanartKey(k => k + 1); else setPosterKey(k => k + 1); },
+          dialogTarget === 'fanart' ? 'videoDetail.fanartUploadSuccess' : 'videoDetail.posterUploadSuccess',
+          dialogTarget === 'fanart' ? 'videoDetail.fanartUploadFailed' : 'videoDetail.posterUploadFailed',
+        )}
+        onPathImport={handlePathImport}
+      />
     </Box>
   );
 }

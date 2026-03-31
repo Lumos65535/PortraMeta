@@ -257,6 +257,36 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         return Result<VideoFileDto>.Ok(ToDto(v));
     }
 
+    public async Task<Result<VideoFileDto>> ImportPosterFromPathAsync(int id, string path, CancellationToken ct = default)
+    {
+        if (!File.Exists(path))
+            return Result<VideoFileDto>.Fail("File not found");
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        var mime = ext switch { ".png" => "image/png", ".webp" => "image/webp", ".jpg" or ".jpeg" => "image/jpeg", _ => null };
+        if (mime is null)
+            return Result<VideoFileDto>.Fail("Invalid file type. Only JPEG, PNG, and WebP are allowed");
+
+        var info = new FileInfo(path);
+        await using var stream = File.OpenRead(path);
+        return await UploadPosterAsync(id, stream, mime, info.Length, ct);
+    }
+
+    public async Task<Result<VideoFileDto>> ImportFanartFromPathAsync(int id, string path, CancellationToken ct = default)
+    {
+        if (!File.Exists(path))
+            return Result<VideoFileDto>.Fail("File not found");
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        var mime = ext switch { ".png" => "image/png", ".webp" => "image/webp", ".jpg" or ".jpeg" => "image/jpeg", _ => null };
+        if (mime is null)
+            return Result<VideoFileDto>.Fail("Invalid file type. Only JPEG, PNG, and WebP are allowed");
+
+        var info = new FileInfo(path);
+        await using var stream = File.OpenRead(path);
+        return await UploadFanartAsync(id, stream, mime, info.Length, ct);
+    }
+
     private static string? FindImageWithAnyExtension(string videoFilePath, string suffix)
     {
         var dir = Path.GetDirectoryName(videoFilePath)!;

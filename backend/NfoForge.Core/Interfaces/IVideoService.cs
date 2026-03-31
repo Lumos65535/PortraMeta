@@ -41,6 +41,8 @@ public record UpdateVideoRequest(
     IReadOnlyList<ActorRequest>? Actors = null
 );
 
+public record ImportFromPathRequest(string Path);
+
 public interface IVideoService
 {
     Task<Result<PagedResult<VideoFileDto>>> GetAllAsync(
@@ -55,4 +57,6 @@ public interface IVideoService
     Task<Result<VideoFileDto>> UploadFanartAsync(
         int id, Stream imageStream, string contentType, long contentLength,
         CancellationToken ct = default);
+    Task<Result<VideoFileDto>> ImportPosterFromPathAsync(int id, string path, CancellationToken ct = default);
+    Task<Result<VideoFileDto>> ImportFanartFromPathAsync(int id, string path, CancellationToken ct = default);
 }

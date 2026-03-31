@@ -70,15 +70,23 @@ export const videosApi = {
     const formData = new FormData();
     formData.append('file', file);
     return api
-      .post<ApiResponse<VideoFile>>(`/videos/${id}/poster`, formData)
+      .post<ApiResponse<VideoFile>>(`/videos/${id}/poster`, formData, {
+        headers: { 'Content-Type': undefined },
+      })
       .then(r => r.data);
   },
+  importPosterFromPath: (id: number, path: string) =>
+    api.post<ApiResponse<VideoFile>>(`/videos/${id}/poster/from-path`, { path }).then(r => r.data),
   getFanartUrl: (id: number): string => `/api/videos/${id}/fanart`,
   uploadFanart: (id: number, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     return api
-      .post<ApiResponse<VideoFile>>(`/videos/${id}/fanart`, formData)
+      .post<ApiResponse<VideoFile>>(`/videos/${id}/fanart`, formData, {
+        headers: { 'Content-Type': undefined },
+      })
       .then(r => r.data);
   },
+  importFanartFromPath: (id: number, path: string) =>
+    api.post<ApiResponse<VideoFile>>(`/videos/${id}/fanart/from-path`, { path }).then(r => r.data),
 };

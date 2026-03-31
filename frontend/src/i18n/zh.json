@@ -64,6 +64,15 @@
     "fanartUploadSuccess": "Fanart 上传成功",
     "fanartUploadFailed": "Fanart 上传失败",
     "replaceImage": "更换图片",
+    "uploadDialog": {
+      "title": "上传{{label}}",
+      "dropHint": "将图片拖到此处，或",
+      "uploadFile": "点击上传文件",
+      "pasteHint": "也可直接粘贴剪贴板中的图片（Ctrl+V）",
+      "or": "或",
+      "pathPlaceholder": "粘贴本地文件路径，如 /path/to/image.jpg",
+      "pathConfirm": "确认"
+    },
     "fields": {
       "path": "路径",
       "size": "大小",

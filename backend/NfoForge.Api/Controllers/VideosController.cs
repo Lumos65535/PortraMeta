@@ -83,6 +83,17 @@ public class VideosController(IVideoService videoService) : ControllerBase
         return PhysicalFile(result.Data!, mime);
     }
 
+    [HttpPost("{id:int}/poster/from-path")]
+    public async Task<IActionResult> ImportPosterFromPath(int id, [FromBody] ImportFromPathRequest request, CancellationToken ct)
+    {
+        var result = await videoService.ImportPosterFromPathAsync(id, request.Path, ct);
+        return result.Success
+            ? Ok(new { data = result.Data, success = true })
+            : result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                ? NotFound(new { error = result.Error, success = false })
+                : BadRequest(new { error = result.Error, success = false });
+    }
+
     [HttpPost("{id:int}/fanart")]
     [RequestSizeLimit(10 * 1024 * 1024 + 4096)]
     public async Task<IActionResult> UploadFanart(int id, IFormFile? file, CancellationToken ct)
@@ -92,6 +103,17 @@ public class VideosController(IVideoService videoService) : ControllerBase
 
         using var stream = file.OpenReadStream();
         var result = await videoService.UploadFanartAsync(id, stream, file.ContentType, file.Length, ct);
+        return result.Success
+            ? Ok(new { data = result.Data, success = true })
+            : result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                ? NotFound(new { error = result.Error, success = false })
+                : BadRequest(new { error = result.Error, success = false });
+    }
+
+    [HttpPost("{id:int}/fanart/from-path")]
+    public async Task<IActionResult> ImportFanartFromPath(int id, [FromBody] ImportFromPathRequest request, CancellationToken ct)
+    {
+        var result = await videoService.ImportFanartFromPathAsync(id, request.Path, ct);
         return result.Success
             ? Ok(new { data = result.Data, success = true })
             : result.Error!.Contains("not found", StringComparison.OrdinalIgnoreCase)
