@@ -49,8 +49,8 @@ function toEditState(v: VideoFile): EditState {
   };
 }
 
-// Reusable upload panel (poster or fanart)
-interface ImagePanelProps {
+// Compact image panel used in the top-row images section
+interface CompactImagePanelProps {
   label: string;
   hasImage: boolean;
   imageUrl: string;
@@ -59,29 +59,34 @@ interface ImagePanelProps {
   dragOver: boolean;
   uploadHint: string;
   noImageText: string;
+  aspectRatio: string;
   inputRef: React.RefObject<HTMLInputElement | null>;
   onUpload: (file: File) => void;
   onDragOver: () => void;
   onDragLeave: () => void;
 }
 
-function ImageUploadPanel({
+function CompactImagePanel({
   label, hasImage, imageUrl, imageAlt, uploading, dragOver,
-  uploadHint, noImageText, inputRef, onUpload, onDragOver, onDragLeave,
-}: ImagePanelProps) {
+  uploadHint, noImageText, aspectRatio, inputRef, onUpload, onDragOver, onDragLeave,
+}: CompactImagePanelProps) {
   const { t } = useTranslation();
   return (
     <Paper
       sx={{
-        p: 2,
-        cursor: uploading ? 'default' : 'pointer',
-        border: '2px solid',
-        borderColor: dragOver ? 'primary.main' : 'transparent',
-        transition: 'border-color 0.2s',
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        aspectRatio,
+        overflow: 'hidden',
         outline: 'none',
+        cursor: hasImage || uploading ? 'default' : 'pointer',
+        border: '1px solid',
+        borderColor: dragOver ? 'primary.main' : 'divider',
+        transition: 'border-color 0.2s',
       }}
       tabIndex={0}
-      onClick={() => !uploading && inputRef.current?.click()}
+      onClick={() => !hasImage && !uploading && inputRef.current?.click()}
       onDragOver={e => { e.preventDefault(); onDragOver(); }}
       onDragLeave={onDragLeave}
       onDrop={e => {
@@ -97,41 +102,6 @@ function ImageUploadPanel({
         if (f) onUpload(f);
       }}
     >
-      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-        {label}
-      </Typography>
-      <Divider sx={{ mb: 1.5 }} />
-      {hasImage ? (
-        <Box
-          component="img"
-          src={imageUrl}
-          alt={imageAlt}
-          sx={{
-            width: '100%',
-            borderRadius: 1,
-            display: 'block',
-            mb: 1.5,
-            objectFit: 'cover',
-            maxHeight: 280,
-          }}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          onClick={e => e.stopPropagation()}
-        />
-      ) : (
-        <Box
-          sx={{
-            height: 140,
-            bgcolor: 'action.hover',
-            borderRadius: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mb: 1.5,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">{noImageText}</Typography>
-        </Box>
-      )}
       <input
         ref={inputRef}
         type="file"
@@ -143,14 +113,55 @@ function ImageUploadPanel({
           e.target.value = '';
         }}
       />
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+      {/* Header bar: label + action */}
+      <Box sx={{
+        px: 1.5, py: 0.5, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+        bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider',
+        whiteSpace: 'nowrap',
+      }}>
+        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+          {label}
+        </Typography>
         {uploading ? (
-          <>
-            <CircularProgress size={14} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <CircularProgress size={12} />
             <Typography variant="caption">{t('videoDetail.uploading')}</Typography>
-          </>
+          </Box>
+        ) : hasImage ? (
+          <Button
+            size="small"
+            variant="text"
+            sx={{ minWidth: 0, py: 0, px: 0.5, fontSize: '0.7rem', lineHeight: 1.5 }}
+            onClick={e => { e.stopPropagation(); inputRef.current?.click(); }}
+          >
+            {t('videoDetail.replaceImage')}
+          </Button>
+        ) : null}
+      </Box>
+      {/* Image / placeholder */}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', bgcolor: 'background.default' }}>
+        {hasImage ? (
+          <Box
+            component="img"
+            src={imageUrl}
+            alt={imageAlt}
+            sx={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
         ) : (
-          <Typography variant="caption" color="text.secondary">{uploadHint}</Typography>
+          <Box sx={{
+            width: '100%', height: '100%',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: 0.5, p: 1,
+          }}>
+            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+              {noImageText}
+            </Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.65rem', textAlign: 'center' }}>
+              {uploadHint}
+            </Typography>
+          </Box>
         )}
       </Box>
     </Paper>
@@ -321,150 +332,94 @@ export default function VideoDetailPage() {
       </Box>
 
       <Grid container spacing={3}>
-        {/* File info */}
-        <Grid size={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              {t('videoDetail.fileInfo')}
-            </Typography>
-            <Divider sx={{ mb: 1.5 }} />
-            <Grid container spacing={1}>
-              <Grid size={12}>
-                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.path')}</Typography>
-                <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>{video.filePath}</Typography>
+        {/* ── 左列：FileInfo + Metadata + Actors ── */}
+        <Grid size={{ xs: 12, md: 9 }}>
+          <Stack spacing={3}>
+            {/* 1. FileInfo */}
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                {t('videoDetail.fileInfo')}
+              </Typography>
+              <Divider sx={{ mb: 1.5 }} />
+              <Grid container spacing={1}>
+                <Grid size={12}>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.path')}</Typography>
+                  <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>{video.filePath}</Typography>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 4 }}>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.size')}</Typography>
+                  <Typography variant="body2">{formatBytes(video.fileSizeBytes)}</Typography>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 8 }}>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.scannedAt')}</Typography>
+                  <Typography variant="body2">{new Date(video.scannedAt).toLocaleString()}</Typography>
+                </Grid>
+                <Grid size={{ xs: 4, sm: 4 }}>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.nfo')}</Typography>
+                  <Chip label={video.hasNfo ? t('videoDetail.exists') : t('videoDetail.missing')} color={video.hasNfo ? 'success' : 'default'} size="small" />
+                </Grid>
+                <Grid size={{ xs: 4, sm: 4 }}>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.poster')}</Typography>
+                  <Chip label={video.hasPoster ? t('videoDetail.exists') : t('videoDetail.missing')} color={video.hasPoster ? 'success' : 'default'} size="small" />
+                </Grid>
+                <Grid size={{ xs: 4, sm: 4 }}>
+                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.fanart')}</Typography>
+                  <Chip label={video.hasFanart ? t('videoDetail.exists') : t('videoDetail.missing')} color={video.hasFanart ? 'success' : 'default'} size="small" />
+                </Grid>
               </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.size')}</Typography>
-                <Typography variant="body2">{formatBytes(video.fileSizeBytes)}</Typography>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.scannedAt')}</Typography>
-                <Typography variant="body2">{new Date(video.scannedAt).toLocaleString()}</Typography>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.nfo')}</Typography>
-                <Chip
-                  label={video.hasNfo ? t('videoDetail.exists') : t('videoDetail.missing')}
-                  color={video.hasNfo ? 'success' : 'default'}
-                  size="small"
-                />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.poster')}</Typography>
-                <Chip
-                  label={video.hasPoster ? t('videoDetail.exists') : t('videoDetail.missing')}
-                  color={video.hasPoster ? 'success' : 'default'}
-                  size="small"
-                />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.fanart')}</Typography>
-                <Chip
-                  label={video.hasFanart ? t('videoDetail.exists') : t('videoDetail.missing')}
-                  color={video.hasFanart ? 'success' : 'default'}
-                  size="small"
-                />
-              </Grid>
-            </Grid>
-          </Paper>
-        </Grid>
+            </Paper>
 
-        {/* Metadata */}
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              {t('videoDetail.metadata')}
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            {editing && form ? (
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 8 }}>
-                  <TextField label={t('videoDetail.fields.title')} fullWidth size="small" {...field('title')} />
+            {/* 2. Metadata */}
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                {t('videoDetail.metadata')}
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              {editing && form ? (
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 8 }}>
+                    <TextField label={t('videoDetail.fields.title')} fullWidth size="small" {...field('title')} />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField label={t('videoDetail.fields.year')} fullWidth size="small" type="number" {...field('year')} />
+                  </Grid>
+                  <Grid size={12}>
+                    <TextField label={t('videoDetail.fields.originalTitle')} fullWidth size="small" {...field('originalTitle')} />
+                  </Grid>
+                  <Grid size={12}>
+                    <TextField label={t('videoDetail.fields.studio')} fullWidth size="small" {...field('studioName')} />
+                  </Grid>
+                  <Grid size={12}>
+                    <TextField label={t('videoDetail.fields.plot')} fullWidth multiline rows={4} {...field('plot')} />
+                  </Grid>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <TextField label={t('videoDetail.fields.year')} fullWidth size="small" type="number" {...field('year')} />
+              ) : (
+                <Grid container spacing={1.5}>
+                  <Grid size={{ xs: 12, sm: 8 }}>
+                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.title')}</Typography>
+                    <Typography>{video.title ?? '—'}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.year')}</Typography>
+                    <Typography>{video.year ?? '—'}</Typography>
+                  </Grid>
+                  <Grid size={12}>
+                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.originalTitle')}</Typography>
+                    <Typography>{video.originalTitle ?? '—'}</Typography>
+                  </Grid>
+                  <Grid size={12}>
+                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.studio')}</Typography>
+                    <Typography>{video.studioName ?? '—'}</Typography>
+                  </Grid>
+                  <Grid size={12}>
+                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.plot')}</Typography>
+                    <Typography sx={{ whiteSpace: 'pre-wrap' }}>{video.plot ?? '—'}</Typography>
+                  </Grid>
                 </Grid>
-                <Grid size={12}>
-                  <TextField label={t('videoDetail.fields.originalTitle')} fullWidth size="small" {...field('originalTitle')} />
-                </Grid>
-                <Grid size={12}>
-                  <TextField label={t('videoDetail.fields.studio')} fullWidth size="small" {...field('studioName')} />
-                </Grid>
-                <Grid size={12}>
-                  <TextField label={t('videoDetail.fields.plot')} fullWidth multiline rows={4} {...field('plot')} />
-                </Grid>
-              </Grid>
-            ) : (
-              <Grid container spacing={1.5}>
-                <Grid size={{ xs: 12, sm: 8 }}>
-                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.title')}</Typography>
-                  <Typography>{video.title ?? '—'}</Typography>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.year')}</Typography>
-                  <Typography>{video.year ?? '—'}</Typography>
-                </Grid>
-                <Grid size={12}>
-                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.originalTitle')}</Typography>
-                  <Typography>{video.originalTitle ?? '—'}</Typography>
-                </Grid>
-                <Grid size={12}>
-                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.studio')}</Typography>
-                  <Typography>{video.studioName ?? '—'}</Typography>
-                </Grid>
-                <Grid size={12}>
-                  <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.plot')}</Typography>
-                  <Typography sx={{ whiteSpace: 'pre-wrap' }}>{video.plot ?? '—'}</Typography>
-                </Grid>
-              </Grid>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Right column: Poster + Fanart + Actors */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Stack spacing={2}>
-            {/* Poster Panel */}
-            <ImageUploadPanel
-              label={t('videoDetail.fields.poster')}
-              hasImage={video.hasPoster}
-              imageUrl={`${videosApi.getPosterUrl(video.id)}?v=${posterKey}`}
-              imageAlt={video.title ?? video.fileName}
-              uploading={uploadingPoster}
-              dragOver={dragOverPoster}
-              uploadHint={t('videoDetail.uploadPoster')}
-              noImageText={t('videoDetail.noPoster')}
-              inputRef={posterInputRef}
-              onUpload={f => handleImageUpload(
-                f, videosApi.uploadPoster, setUploadingPoster,
-                () => setPosterKey(k => k + 1),
-                'videoDetail.posterUploadSuccess', 'videoDetail.posterUploadFailed',
               )}
-              onDragOver={() => setDragOverPoster(true)}
-              onDragLeave={() => setDragOverPoster(false)}
-            />
+            </Paper>
 
-            {/* Fanart Panel */}
-            <ImageUploadPanel
-              label={t('videoDetail.fields.fanart')}
-              hasImage={video.hasFanart}
-              imageUrl={`${videosApi.getFanartUrl(video.id)}?v=${fanartKey}`}
-              imageAlt={video.title ?? video.fileName}
-              uploading={uploadingFanart}
-              dragOver={dragOverFanart}
-              uploadHint={t('videoDetail.uploadFanart')}
-              noImageText={t('videoDetail.noFanart')}
-              inputRef={fanartInputRef}
-              onUpload={f => handleImageUpload(
-                f, videosApi.uploadFanart, setUploadingFanart,
-                () => setFanartKey(k => k + 1),
-                'videoDetail.fanartUploadSuccess', 'videoDetail.fanartUploadFailed',
-              )}
-              onDragOver={() => setDragOverFanart(true)}
-              onDragLeave={() => setDragOverFanart(false)}
-            />
-
-            {/* Actors Panel */}
+            {/* 3. Actors */}
             <Paper sx={{ p: 2 }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 {t('videoDetail.actors')}
@@ -531,6 +486,53 @@ export default function VideoDetailPage() {
                 )
               )}
             </Paper>
+          </Stack>
+        </Grid>
+
+        {/* ── 右列：Poster (3:4) + Fanart (16:9) ── */}
+        <Grid size={{ xs: 12, md: 3 }}>
+          <Stack spacing={3}>
+            {/* 4. Poster */}
+            <CompactImagePanel
+              label={t('videoDetail.fields.poster')}
+              hasImage={video.hasPoster}
+              imageUrl={`${videosApi.getPosterUrl(video.id)}?v=${posterKey}`}
+              imageAlt={video.title ?? video.fileName}
+              uploading={uploadingPoster}
+              dragOver={dragOverPoster}
+              uploadHint={t('videoDetail.uploadPoster')}
+              noImageText={t('videoDetail.noPoster')}
+              aspectRatio="3/4"
+              inputRef={posterInputRef}
+              onUpload={f => handleImageUpload(
+                f, videosApi.uploadPoster, setUploadingPoster,
+                () => setPosterKey(k => k + 1),
+                'videoDetail.posterUploadSuccess', 'videoDetail.posterUploadFailed',
+              )}
+              onDragOver={() => setDragOverPoster(true)}
+              onDragLeave={() => setDragOverPoster(false)}
+            />
+
+            {/* 5. Fanart */}
+            <CompactImagePanel
+              label={t('videoDetail.fields.fanart')}
+              hasImage={video.hasFanart}
+              imageUrl={`${videosApi.getFanartUrl(video.id)}?v=${fanartKey}`}
+              imageAlt={video.title ?? video.fileName}
+              uploading={uploadingFanart}
+              dragOver={dragOverFanart}
+              uploadHint={t('videoDetail.uploadFanart')}
+              noImageText={t('videoDetail.noFanart')}
+              aspectRatio="16/9"
+              inputRef={fanartInputRef}
+              onUpload={f => handleImageUpload(
+                f, videosApi.uploadFanart, setUploadingFanart,
+                () => setFanartKey(k => k + 1),
+                'videoDetail.fanartUploadSuccess', 'videoDetail.fanartUploadFailed',
+              )}
+              onDragOver={() => setDragOverFanart(true)}
+              onDragLeave={() => setDragOverFanart(false)}
+            />
           </Stack>
         </Grid>
       </Grid>

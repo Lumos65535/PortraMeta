@@ -237,5 +237,15 @@ VITE_API_KEY=your-secret-key npm run build
 ## 已知限制
 
 - `Actor.AvatarPath`、`Actor.Aliases`、`Studio.LogoPath` 字段已定义在实体中，但尚未在 API 或前端使用
+
+## 后续扩展计划
+
+### VideoDetailPage — FileInfo Section 扩展
+当前 FileInfo 仅显示路径、大小、扫描时间、NFO/Poster/Fanart 状态。
+计划后续在此 section 中增加以下字段（需后端扫描时解析并存入 SQLite）：
+- 分辨率（如 1920×1080）
+- 视频编码（如 H.264、HEVC）
+- 音频编码（如 AAC、DTS）
+- 帧率、时长等技术参数
 - 搜索区分大小写（SQLite `LIKE` 默认行为）
 - 无法单独重新扫描某个视频文件（只能扫描整个媒体库）

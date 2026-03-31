@@ -63,6 +63,7 @@
     "uploadFanart": "Click, drag, or paste to upload fanart",
     "fanartUploadSuccess": "Fanart uploaded successfully",
     "fanartUploadFailed": "Fanart upload failed",
+    "replaceImage": "Replace Image",
     "fields": {
       "path": "Path",
       "size": "Size",

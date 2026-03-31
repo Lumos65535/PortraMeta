@@ -63,6 +63,7 @@
     "uploadFanart": "点击、拖拽或粘贴图片上传 Fanart",
     "fanartUploadSuccess": "Fanart 上传成功",
     "fanartUploadFailed": "Fanart 上传失败",
+    "replaceImage": "更换图片",
     "fields": {
       "path": "路径",
       "size": "大小",

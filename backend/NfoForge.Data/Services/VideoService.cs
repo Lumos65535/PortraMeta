@@ -149,8 +149,8 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             return Result<string>.Fail("Video not found");
         }
 
-        var posterPath = FileSystemScanner.PosterPath(v.FilePath);
-        if (!File.Exists(posterPath))
+        var posterPath = FindImageWithAnyExtension(v.FilePath, "-poster");
+        if (posterPath is null)
             return Result<string>.Fail("Poster not found");
 
         return Result<string>.Ok(posterPath);
@@ -209,8 +209,8 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             return Result<string>.Fail("Video not found");
         }
 
-        var fanartPath = FileSystemScanner.FanartPath(v.FilePath);
-        if (!File.Exists(fanartPath))
+        var fanartPath = FindImageWithAnyExtension(v.FilePath, "-fanart");
+        if (fanartPath is null)
             return Result<string>.Fail("Fanart not found");
 
         return Result<string>.Ok(fanartPath);
@@ -255,6 +255,18 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
         logger.LogInformation("Fanart uploaded for video {Id} ({FileName})", id, v.FileName);
         return Result<VideoFileDto>.Ok(ToDto(v));
+    }
+
+    private static string? FindImageWithAnyExtension(string videoFilePath, string suffix)
+    {
+        var dir = Path.GetDirectoryName(videoFilePath)!;
+        var stem = Path.GetFileNameWithoutExtension(videoFilePath);
+        foreach (var ext in new[] { ".jpg", ".jpeg", ".png" })
+        {
+            var path = Path.Combine(dir, stem + suffix + ext);
+            if (File.Exists(path)) return path;
+        }
+        return null;
     }
 
     private static VideoFileDto ToDto(VideoFile v)
