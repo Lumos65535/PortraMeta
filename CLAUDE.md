@@ -325,6 +325,126 @@ Body: { frameIndices: [3, 11] }
 - Docker：`apt-get install -y ffmpeg`（约 70-90MB 镜像增量）
 - NuGet：`SixLabors.ImageSharp`（纯托管库，约 5MB，无系统依赖）
 
+### 批量文件编辑规划
+
+**功能描述：** 在视频列表页多选文件，对选中文件批量赋值某些 NFO 字段（如统一设置厂牌、年份、标签等），并同步写入对应的 NFO 文件和 SQLite。
+
+#### 现状分析
+
+- 后端：无批量更新接口，当前只有 `PUT /api/videos/{id}`（单条）
+- 前端：DataGrid 配置了 `disableRowSelectionOnClick`，无复选框多选机制
+- 需从零构建，但现有 `UpdateVideoRequest` DTO 所有字段均可为 `null`（天然支持"部分字段更新"语义）
+
+#### 实现路线
+
+**后端**
+
+1. 新增 `BatchUpdateVideoRequest` DTO，包含：
+   - `ids: int[]`（目标视频 ID 列表）
+   - 与 `UpdateVideoRequest` 相同的可选字段（`null` 表示"不修改该字段"）
+2. `IVideoService` 新增 `BatchUpdateAsync(BatchUpdateVideoRequest request)` 方法
+3. 新增端点 `PUT /api/videos/batch`，对每条记录调用 NFO 写入，事务包裹保证原子性
+4. 返回 `{ updated: int, failed: int[] }`，前端据此刷新列表
+
+**前端**
+
+1. `VideosPage` DataGrid 去掉 `disableRowSelectionOnClick`，改为 `checkboxSelection`，同时保留行点击导航（通过 `onRowClick` 跳转）
+2. 选中行数 > 0 时，工具栏出现"批量编辑"按钮
+3. 弹出 `BatchEditDialog`：展示即将编辑的文件数量，提供各字段输入（留空 = 不修改），确认后调用批量 API
+4. 操作完成后清空选中状态并刷新列表
+
+#### API 草稿
+
+```
+PUT /api/videos/batch
+Body: {
+  ids: [1, 2, 3],
+  studioName: "Acme",   // null = 不修改
+  year: 2023,
+  title: null,          // 不修改
+  ...
+}
+Response: { data: { updated: 3, failed: [] }, success: true }
+```
+
+#### 注意事项
+
+- `actors` 字段批量覆盖风险较高（会清空各文件原有演员），建议批量编辑暂不开放演员字段
+- 批量操作不可撤销，Dialog 中应明确提示影响文件数量
+
+---
+
+### 文件名智能解析规划
+
+**功能描述：** 按照用户定义的正则或分词规则，从视频文件名中自动提取片段，映射到元数据字段（标题、年份、厂牌、演员等），预填后供用户确认再写入 NFO。
+
+#### 核心交互模式
+
+1. **模板解析**（推荐，对非技术用户友好）：用户定义带占位符的模板字符串，如：
+   ```
+   {studio} {title} ({year})
+   ```
+   系统将模板转换为正则，从文件名中提取对应分组。
+
+2. **自定义正则**（高级模式）：用户直接输入正则表达式，使用具名捕获组（`(?P<title>...)`）映射字段。
+
+3. **分隔符分词**（最简模式）：按空格/下划线/连字符分词，用户手动将每个 token 拖拽到对应字段。
+
+#### 实现路线
+
+**后端**
+
+1. 新增 `POST /api/videos/parse-filename` 端点（**纯计算，不写库**）：
+   - 接收 `{ pattern: string, patternType: "template"|"regex"|"split", fileNames: string[] }`
+   - 返回每个文件名的解析结果 `{ fileName, parsed: { title?, year?, studioName?, ... } }`
+2. 模板转正则的转换逻辑放在后端（C# `Regex` 库），规避各浏览器正则差异
+
+**前端**
+
+1. 在视频列表页"批量编辑"工具栏中新增"从文件名填充"入口
+2. 用户在 `FilenameParserDialog` 中：
+   - 选择解析模式（模板 / 正则 / 分词）
+   - 输入规则，实时预览当前页前 5 条文件名的解析结果（调用后端预览 API）
+   - 确认后，将解析结果批量预填到各文件的草稿元数据中
+3. 预览阶段不写入任何数据；用户点击"应用并保存"才调用批量更新 API
+
+#### 模板占位符设计
+
+| 占位符 | 映射字段 | 示例 |
+|--------|----------|------|
+| `{title}` | 标题 | `Inception` |
+| `{originaltitle}` | 原标题 | `インセプション` |
+| `{year}` | 年份（4位数字） | `2010` |
+| `{studio}` | 厂牌 | `Warner` |
+| `{actor}` | 演员（逗号分隔） | `DiCaprio` |
+| `{ignore}` | 忽略该片段 | — |
+
+#### API 草稿
+
+```
+POST /api/videos/parse-filename
+Body: {
+  pattern: "{studio} {title} ({year})",
+  patternType: "template",
+  fileNames: ["Warner Inception (2010).mkv", "..."]
+}
+Response: {
+  data: [
+    { fileName: "Warner Inception (2010).mkv",
+      parsed: { studio: "Warner", title: "Inception", year: 2010 } },
+    ...
+  ]
+}
+```
+
+#### 注意事项
+
+- 解析结果可能有歧义（如文件名中有多个括号），预览界面需允许用户手动修正单条结果
+- 正则模式应对特殊字符做安全检查，避免 ReDoS
+- 文件名解析属于辅助工具，最终以用户确认后的批量保存为准，不自动写入
+
+---
+
 ### VideoDetailPage — FileInfo Section 扩展
 当前 FileInfo 仅显示路径、大小、扫描时间、NFO/Poster/Fanart 状态。
 计划后续在此 section 中增加以下字段（需后端扫描时解析并存入 SQLite）：
