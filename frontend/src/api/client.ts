@@ -1,4 +1,5 @@
 import axios from 'axios';
+import i18n from '../i18n';
 
 const BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL ?? 'http://localhost:5001');
 
@@ -24,7 +25,7 @@ api.interceptors.response.use(
   res => res,
   err => {
     const serverError: string | undefined = err.response?.data?.error;
-    const message = serverError ?? (err.message === 'Network Error' ? '无法连接到服务器' : '请求失败');
+    const message = serverError ?? (err.message === 'Network Error' ? i18n.t('errors.networkError') : i18n.t('errors.requestFailed'));
     return Promise.reject(new Error(message));
   },
 );

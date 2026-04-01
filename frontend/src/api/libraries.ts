@@ -8,12 +8,21 @@ export interface Library {
   createdAt: string;
 }
 
+export interface ScanResult {
+  total: number;
+  added: number;
+  updated: number;
+  skipped: number;
+  nfoParsed: number;
+  excludedFolders: number;
+}
+
 export const librariesApi = {
   getAll: () => api.get<ApiResponse<Library[]>>('/libraries').then(r => r.data),
   create: (name: string, path: string) =>
     api.post<ApiResponse<Library>>('/libraries', { name, path }).then(r => r.data),
   delete: (id: number) => api.delete(`/libraries/${id}`),
-  scan: (id: number) => api.post<ApiResponse<string>>(`/libraries/${id}/scan`).then(r => r.data),
+  scan: (id: number) => api.post<ApiResponse<ScanResult>>(`/libraries/${id}/scan`).then(r => r.data),
   getSubdirectories: (id: number) =>
     api.get<ApiResponse<string[]>>(`/libraries/${id}/subdirectories`).then(r => r.data),
   getExcludedFolders: (id: number) =>

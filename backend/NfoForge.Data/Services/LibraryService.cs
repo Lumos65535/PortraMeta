@@ -97,14 +97,14 @@ public class LibraryService(
         return Result.Ok();
     }
 
-    public async Task<Result<string>> ScanAsync(int id, CancellationToken ct = default)
+    public async Task<Result<ScanResultDto>> ScanAsync(int id, CancellationToken ct = default)
     {
         var library = await db.Libraries.FindAsync([id], ct);
         if (library is null)
-            return Result<string>.Fail("Library not found");
+            return Result<ScanResultDto>.Fail("Library not found");
 
         if (!Directory.Exists(library.Path))
-            return Result<string>.Fail($"Library path not found: {library.Path}");
+            return Result<ScanResultDto>.Fail($"Library path not found: {library.Path}");
 
         logger.LogInformation("Scan started: library {Id} ({Name}) at {Path}", id, library.Name, library.Path);
 
@@ -290,22 +290,20 @@ public class LibraryService(
 
             await db.SaveChangesAsync(ct);
 
-            var summary = $"Scanned {videoFiles.Count} files: added {newEntities.Count}, updated {updated}, skipped {skipped} (NFO parsed: {nfoParsed})";
-            if (excludedPaths.Count > 0)
-                summary += $", excluded {excludedPaths.Count} folder(s)";
-
-            logger.LogInformation("Scan completed: library {Id} — {Summary}", id, summary);
-            return Result<string>.Ok(summary);
+            var scanResult = new ScanResultDto(videoFiles.Count, newEntities.Count, updated, skipped, nfoParsed, excludedPaths.Count);
+            logger.LogInformation("Scan completed: library {Id} — total {Total}, added {Added}, updated {Updated}, skipped {Skipped}, NFO parsed {NfoParsed}, excluded {Excluded} folder(s)",
+                id, scanResult.Total, scanResult.Added, scanResult.Updated, scanResult.Skipped, scanResult.NfoParsed, scanResult.ExcludedFolders);
+            return Result<ScanResultDto>.Ok(scanResult);
         }
         catch (OperationCanceledException)
         {
             logger.LogWarning("Scan cancelled: library {Id}", id);
-            return Result<string>.Fail("Scan cancelled");
+            return Result<ScanResultDto>.Fail("Scan cancelled");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Scan failed: library {Id}", id);
-            return Result<string>.Fail($"Scan failed: {ex.Message}");
+            return Result<ScanResultDto>.Fail($"Scan failed: {ex.Message}");
         }
     }
 }

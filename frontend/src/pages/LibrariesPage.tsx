@@ -209,7 +209,8 @@ export default function LibrariesPage() {
     try {
       const res = await librariesApi.scan(lib.id);
       if (res.success) {
-        notify(res.data, 'success');
+        const d = res.data;
+        notify(t('libraries.scanSuccess', { total: d.total, added: d.added, updated: d.updated, skipped: d.skipped, nfoParsed: d.nfoParsed }), 'success');
       } else {
         notify(res.error ?? t('libraries.scanFailed'), 'error');
       }

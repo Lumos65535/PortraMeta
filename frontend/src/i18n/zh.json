@@ -1,4 +1,8 @@
 {
+  "errors": {
+    "networkError": "无法连接到服务器",
+    "requestFailed": "请求失败"
+  },
   "nav": {
     "videos": "视频文件",
     "libraries": "媒体库",
@@ -133,6 +137,7 @@
     "addSuccess": "媒体库 \"{{name}}\" 添加成功",
     "addFailed": "添加失败",
     "deleteSuccess": "媒体库 \"{{name}}\" 已删除",
+    "scanSuccess": "扫描完成：共 {{total}} 个文件，新增 {{added}}，更新 {{updated}}，跳过 {{skipped}}，解析 NFO {{nfoParsed}} 个",
     "scanFailed": "扫描失败",
     "columns": {
       "name": "名称",

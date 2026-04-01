@@ -1,4 +1,8 @@
 {
+  "errors": {
+    "networkError": "Cannot connect to server",
+    "requestFailed": "Request failed"
+  },
   "nav": {
     "videos": "Videos",
     "libraries": "Libraries",
@@ -133,6 +137,7 @@
     "addSuccess": "Library \"{{name}}\" added successfully",
     "addFailed": "Failed to add library",
     "deleteSuccess": "Library \"{{name}}\" deleted",
+    "scanSuccess": "Scanned {{total}} files: added {{added}}, updated {{updated}}, skipped {{skipped}}, NFO parsed {{nfoParsed}}",
     "scanFailed": "Scan failed",
     "columns": {
       "name": "Name",
