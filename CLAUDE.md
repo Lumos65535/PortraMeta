@@ -262,7 +262,68 @@ VITE_API_KEY=your-secret-key npm run build
 
 - `Actor.AvatarPath`、`Actor.Aliases`、`Studio.LogoPath` 字段已定义在实体中，但尚未在 API 或前端使用
 
+## 插件系统规划（待实现）
+
+### 设计目标
+
+保持核心项目轻量，将依赖重型系统组件的可选功能（如视频截图、刮削器）以**插件**形式独立提供，用户按需集成。
+
+### 插件形式（方向待定，实现前需另行规划）
+
+| 方向 | 说明 |
+|------|------|
+| 后端动态加载程序集 | 插件为 .NET DLL，后端运行时按需加载 |
+| 独立 sidecar 进程 | 插件为独立进程，通过 HTTP API 与主后端通信 |
+| 前端独立页面模块 | 插件为前端页面/组件，按需挂载到路由 |
+
+### 已规划的插件
+
+- **海报生成插件**（见下方章节）：官方第一个参考插件，演示视频截图 + 图像拼接能力
+
+### 扩展方向
+
+用户和第三方开发者可基于插件接口自行开发其他插件（如刮削器、字幕管理、封面裁剪等）。
+
+---
+
 ## 后续扩展计划
+
+### 海报生成插件规划
+
+将以插件形式实现，不内置到核心项目。核心逻辑：后端提取视频帧 → 前端展示供用户选择 → 后端拼接生成海报。
+
+#### 技术选型：后端 FFmpeg CLI（最轻量）
+
+| 方案 | 说明 | 结论 |
+|------|------|------|
+| 前端 HTML5 `<video>` + Canvas | 需将完整视频传输到浏览器，5GB 文件代价不可接受 | ❌ |
+| 前端 ffmpeg.wasm | ~50MB 初始下载 + 需修改 Nginx COOP/COEP 头 + 速度慢 | ❌ |
+| **后端 FFmpeg CLI** | 视频本就在服务器，零传输，支持所有格式（MKV/MP4/AVI/TS 等） | ✅ |
+
+#### 用户交互流程
+
+1. 点击"从视频生成海报"按钮（仅在无海报时可用）
+2. 后端调用 `ffmpeg` 在视频有效范围内均匀提取 16 帧缩略图
+3. 前端弹窗以 4×4 网格展示 16 张缩略图
+4. 用户手动点选 2 张（有顺序：第 1 张在上，第 2 张在下）
+5. 后端重新提取对应 2 帧原始分辨率图像，用 `SixLabors.ImageSharp` 上下拼接
+6. 裁剪/填充为标准 **3:4** 竖屏比例（如 900×1200），保存为 `{videofile}-poster.jpg`
+
+#### API 草稿
+
+```
+POST /api/videos/{id}/poster/frames
+→ 返回 16 张缩略图（base64 或临时 URL）
+
+POST /api/videos/{id}/poster/generate
+Body: { frameIndices: [3, 11] }
+→ 拼接生成并保存海报，返回更新后的 VideoFile
+```
+
+#### 依赖增量
+
+- Docker：`apt-get install -y ffmpeg`（约 70-90MB 镜像增量）
+- NuGet：`SixLabors.ImageSharp`（纯托管库，约 5MB，无系统依赖）
 
 ### VideoDetailPage — FileInfo Section 扩展
 当前 FileInfo 仅显示路径、大小、扫描时间、NFO/Poster/Fanart 状态。
