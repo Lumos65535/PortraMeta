@@ -368,7 +368,9 @@ export default function VideosPage() {
               columns={columns}
               loading={loading}
               disableRowSelectionOnClick
-              onRowClick={params => navigate(`/videos/${params.row.id}`)}
+              onRowClick={params => navigate(`/videos/${params.row.id}`, {
+            state: { ids: result?.items.map(r => r.id) ?? [] },
+          })}
               getRowId={row => row.id}
               columnVisibilityModel={columnVisibilityModel}
               onColumnVisibilityModelChange={setColumnVisibilityModel}

@@ -234,6 +234,30 @@ VITE_API_KEY=your-secret-key npm run build
 15. 刮削器接口预留 `/api/scrapers`（暂不实现）
 16. Tauri 桌面客户端打包（macOS / Windows）
 
+## 键盘操作规划（待实现）
+
+计划在 VideoDetailPage 及全局添加键盘快捷键支持，提升浏览效率。
+
+### 文件导航
+| 快捷键 | 动作 |
+|--------|------|
+| `←` / `[` | 跳转到上一个文件 |
+| `→` / `]` | 跳转到下一个文件 |
+| `Backspace` / `Escape` | 返回视频列表 |
+
+### 编辑操作
+| 快捷键 | 动作 |
+|--------|------|
+| `E` | 进入编辑模式（非输入框聚焦时） |
+| `Ctrl+S` | 保存当前编辑 |
+| `Escape` | 取消编辑（编辑模式下） |
+
+### 实现思路
+- 使用 `useEffect` + `window.addEventListener('keydown', ...)` 注册全局快捷键
+- 需判断当前焦点是否在输入框/文本区域内（`event.target` 为 `INPUT`、`TEXTAREA`、`SELECT` 或 `[contenteditable]`），若是则不触发快捷键
+- 可封装为自定义 hook `useKeyboardNav`，接受 `prevId`、`nextId`、`editing` 状态作为参数
+- 注意：快捷键注册应在 `editing` 状态变化时重新绑定（deps array 更新）
+
 ## 已知限制
 
 - `Actor.AvatarPath`、`Actor.Aliases`、`Studio.LogoPath` 字段已定义在实体中，但尚未在 API 或前端使用
