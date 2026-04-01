@@ -30,6 +30,18 @@
       "partialMsg": "已更新 {{updated}} 个，{{failed}} 个失败",
       "failedMsg": "全部 {{count}} 个文件更新失败"
     },
+    "batchDelete": {
+      "button": "删除",
+      "title": "删除文件（{{count}} 个）",
+      "modeMetadata": "仅删除元数据文件（NFO、海报、Fanart）",
+      "modeVideo": "仅删除视频文件",
+      "modeAll": "全部删除（视频 + 元数据文件）",
+      "warning": "此操作不可撤销，文件将从磁盘上永久删除",
+      "submit": "确认删除",
+      "successMsg": "已成功删除 {{deleted}} 个",
+      "partialMsg": "已删除 {{deleted}} 个，{{failed}} 个失败",
+      "failedMsg": "全部 {{count}} 个文件删除失败"
+    },
     "columns": {
       "filename": "文件名",
       "title": "标题",
@@ -143,6 +155,12 @@
       "light": "亮色",
       "dark": "暗色",
       "system": "跟随系统"
+    },
+    "fileManagement": {
+      "title": "文件管理",
+      "subtitle": "启用后可在视频列表中删除文件",
+      "enabled": "已启用",
+      "disabled": "已禁用"
     }
   }
 }

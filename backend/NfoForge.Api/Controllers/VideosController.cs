@@ -39,6 +39,18 @@ public class VideosController(IVideoService videoService) : ControllerBase
             : BadRequest(new { error = result.Error, success = false });
     }
 
+    [HttpPost("batch/delete")]
+    public async Task<IActionResult> BatchDelete([FromBody] BatchDeleteRequest request, CancellationToken ct)
+    {
+        if (request.Ids.Length == 0)
+            return BadRequest(new { error = "No IDs provided", success = false });
+
+        var result = await videoService.BatchDeleteAsync(request, ct);
+        return result.Success
+            ? Ok(new { data = result.Data, success = true })
+            : BadRequest(new { error = result.Error, success = false });
+    }
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id, CancellationToken ct)
     {

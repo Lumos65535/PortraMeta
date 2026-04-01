@@ -30,6 +30,18 @@
       "partialMsg": "Updated {{updated}}, {{failed}} failed",
       "failedMsg": "Failed to update all {{count}} files"
     },
+    "batchDelete": {
+      "button": "Delete",
+      "title": "Delete Files ({{count}})",
+      "modeMetadata": "Delete metadata files only (NFO, poster, fanart)",
+      "modeVideo": "Delete video files only",
+      "modeAll": "Delete all (video + metadata files)",
+      "warning": "This action cannot be undone. Files will be permanently deleted from disk.",
+      "submit": "Confirm Delete",
+      "successMsg": "Successfully deleted {{deleted}} files",
+      "partialMsg": "Deleted {{deleted}}, {{failed}} failed",
+      "failedMsg": "Failed to delete all {{count}} files"
+    },
     "columns": {
       "filename": "Filename",
       "title": "Title",
@@ -143,6 +155,12 @@
       "light": "Light",
       "dark": "Dark",
       "system": "System"
+    },
+    "fileManagement": {
+      "title": "File Management",
+      "subtitle": "Enable to allow deleting files from the video list",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
     }
   }
 }

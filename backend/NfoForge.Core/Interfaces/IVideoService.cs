@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using NfoForge.Core.Models;
 
 namespace NfoForge.Core.Interfaces;
@@ -57,6 +58,13 @@ public record BatchUpdateVideoRequest(
 
 public record BatchUpdateResult(int Updated, int[] Failed);
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum DeleteMode { Metadata, Video, All }
+
+public record BatchDeleteRequest(int[] Ids, DeleteMode Mode);
+
+public record BatchDeleteResult(int Deleted, int[] Failed);
+
 public interface IVideoService
 {
     Task<Result<PagedResult<VideoFileDto>>> GetAllAsync(
@@ -74,4 +82,5 @@ public interface IVideoService
     Task<Result<VideoFileDto>> ImportPosterFromPathAsync(int id, string path, CancellationToken ct = default);
     Task<Result<VideoFileDto>> ImportFanartFromPathAsync(int id, string path, CancellationToken ct = default);
     Task<Result<BatchUpdateResult>> BatchUpdateAsync(BatchUpdateVideoRequest request, CancellationToken ct = default);
+    Task<Result<BatchDeleteResult>> BatchDeleteAsync(BatchDeleteRequest request, CancellationToken ct = default);
 }

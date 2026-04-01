@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
-  DialogTitle, FormControlLabel, Grid, IconButton, Menu, TextField, Typography,
+  DialogTitle, FormControlLabel, Grid, IconButton, Menu, Radio, RadioGroup, TextField, Typography,
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +16,7 @@ import {
   type GridSortModel,
 } from '@mui/x-data-grid';
 import { videosApi } from '../api/videos';
-import type { BatchUpdateRequest, PagedResult, VideoFile } from '../api/videos';
+import type { BatchUpdateRequest, DeleteMode, PagedResult, VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
 
 const PAGE_SIZE = 50;
@@ -172,6 +173,63 @@ function BatchEditDialog({ open, count, onClose, onSubmit }: BatchEditDialogProp
   );
 }
 
+// ── Delete Confirm Dialog ─────────────────────────────────────────────────────
+interface DeleteConfirmDialogProps {
+  open: boolean;
+  count: number;
+  onClose: () => void;
+  onConfirm: (mode: DeleteMode) => Promise<void>;
+}
+
+function DeleteConfirmDialog({ open, count, onClose, onConfirm }: DeleteConfirmDialogProps) {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<DeleteMode>('Metadata');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) setMode('Metadata');
+  }, [open]);
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await onConfirm(mode);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{t('videos.batchDelete.title', { count })}</DialogTitle>
+      <DialogContent>
+        <RadioGroup value={mode} onChange={e => setMode(e.target.value as DeleteMode)}>
+          <FormControlLabel value="Metadata" control={<Radio />} label={t('videos.batchDelete.modeMetadata')} disabled={submitting} />
+          <FormControlLabel value="Video" control={<Radio />} label={t('videos.batchDelete.modeVideo')} disabled={submitting} />
+          <FormControlLabel value="All" control={<Radio />} label={t('videos.batchDelete.modeAll')} disabled={submitting} />
+        </RadioGroup>
+        <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1.5 }}>
+          {t('videos.batchDelete.warning')}
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={submitting}>{t('common.cancel')}</Button>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={handleConfirm}
+          disabled={submitting}
+          startIcon={submitting ? <CircularProgress size={16} /> : <DeleteIcon />}
+        >
+          {t('videos.batchDelete.submit')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+const FILE_MGMT_KEY = 'nfoforge_file_management';
+
 export default function VideosPage() {
   const notify = useNotify();
   const navigate = useNavigate();
@@ -186,6 +244,8 @@ export default function VideosPage() {
   const [fieldMenuAnchor, setFieldMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const fileManagementEnabled = localStorage.getItem(FILE_MGMT_KEY) === 'true';
 
   const [columnVisibilityModel, setColumnVisibilityModel] =
     useState<GridColumnVisibilityModel>(() => readGridSettings().visibilityModel);
@@ -287,6 +347,27 @@ export default function VideosPage() {
         load(search, page, sortModel);
       } else {
         notify(res.error ?? t('videos.batchEdit.failedMsg', { count: selectedIds.length }), 'error');
+      }
+    } catch (err) {
+      notify((err as Error).message, 'error');
+    }
+  };
+
+  const handleBatchDelete = async (mode: DeleteMode) => {
+    try {
+      const res = await videosApi.batchDelete({ ids: selectedIds, mode });
+      if (res.success) {
+        const { deleted, failed } = res.data;
+        if (failed.length === 0) {
+          notify(t('videos.batchDelete.successMsg', { deleted }), 'success');
+        } else {
+          notify(t('videos.batchDelete.partialMsg', { deleted, failed: failed.length }), 'warning');
+        }
+        setSelectedIds([]);
+        setDeleteDialogOpen(false);
+        load(search, page, sortModel);
+      } else {
+        notify(res.error ?? t('videos.batchDelete.failedMsg', { count: selectedIds.length }), 'error');
       }
     } catch (err) {
       notify((err as Error).message, 'error');
@@ -443,13 +524,25 @@ export default function VideosPage() {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             {selectedIds.length > 0 && (
-              <Button
-                variant="contained"
-                startIcon={<EditIcon />}
-                onClick={() => setBatchDialogOpen(true)}
-              >
-                {t('videos.batchEdit.button')}（{selectedIds.length}）
-              </Button>
+              <>
+                <Button
+                  variant="contained"
+                  startIcon={<EditIcon />}
+                  onClick={() => setBatchDialogOpen(true)}
+                >
+                  {t('videos.batchEdit.button')}（{selectedIds.length}）
+                </Button>
+                {fileManagementEnabled && (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    {t('videos.batchDelete.button')}（{selectedIds.length}）
+                  </Button>
+                )}
+              </>
             )}
             <TextField
               label={t('videos.search')}
@@ -549,6 +642,13 @@ export default function VideosPage() {
         count={selectedIds.length}
         onClose={() => setBatchDialogOpen(false)}
         onSubmit={handleBatchEdit}
+      />
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        count={selectedIds.length}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleBatchDelete}
       />
     </Box>
   );

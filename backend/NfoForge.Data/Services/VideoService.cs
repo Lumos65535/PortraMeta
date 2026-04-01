@@ -385,6 +385,78 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         return Result<BatchUpdateResult>.Ok(new BatchUpdateResult(updated, [.. failed]));
     }
 
+    public async Task<Result<BatchDeleteResult>> BatchDeleteAsync(BatchDeleteRequest request, CancellationToken ct = default)
+    {
+        if (request.Ids.Length == 0)
+            return Result<BatchDeleteResult>.Ok(new BatchDeleteResult(0, []));
+
+        var failed = new List<int>();
+        int deleted = 0;
+
+        foreach (var id in request.Ids)
+        {
+            try
+            {
+                var v = await db.VideoFiles
+                    .Include(v => v.VideoActors)
+                    .FirstOrDefaultAsync(v => v.Id == id, ct);
+
+                if (v is null)
+                {
+                    logger.LogWarning("Batch delete: video not found: {Id}", id);
+                    failed.Add(id);
+                    continue;
+                }
+
+                // Delete metadata files (NFO, poster, fanart)
+                if (request.Mode is DeleteMode.Metadata or DeleteMode.All)
+                {
+                    DeleteFileIfExists(FileSystemScanner.NfoPath(v.FilePath));
+                    var posterPath = FindImageWithAnyExtension(v.FilePath, "-poster");
+                    if (posterPath is not null) DeleteFileIfExists(posterPath);
+                    var fanartPath = FindImageWithAnyExtension(v.FilePath, "-fanart");
+                    if (fanartPath is not null) DeleteFileIfExists(fanartPath);
+
+                    v.HasNfo = false;
+                    v.HasPoster = false;
+                    v.HasFanart = false;
+                    v.Title = null;
+                    v.OriginalTitle = null;
+                    v.Year = null;
+                    v.Plot = null;
+                    v.StudioId = null;
+                    v.NfoUpdatedAt = null;
+                }
+
+                // Delete video file + remove DB record
+                if (request.Mode is DeleteMode.Video or DeleteMode.All)
+                {
+                    DeleteFileIfExists(v.FilePath);
+                    db.VideoActors.RemoveRange(v.VideoActors);
+                    db.VideoFiles.Remove(v);
+                }
+
+                await db.SaveChangesAsync(ct);
+                deleted++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Batch delete failed for video {Id}", id);
+                failed.Add(id);
+            }
+        }
+
+        logger.LogInformation("Batch delete complete (mode={Mode}): {Deleted} deleted, {FailedCount} failed",
+            request.Mode, deleted, failed.Count);
+        return Result<BatchDeleteResult>.Ok(new BatchDeleteResult(deleted, [.. failed]));
+    }
+
+    private static void DeleteFileIfExists(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch { /* best-effort cleanup */ }
+    }
+
     private static string? FindImageWithAnyExtension(string videoFilePath, string suffix)
     {
         var dir = Path.GetDirectoryName(videoFilePath)!;

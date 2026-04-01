@@ -75,6 +75,18 @@ export interface BatchUpdateResult {
   failed: number[];
 }
 
+export type DeleteMode = 'Metadata' | 'Video' | 'All';
+
+export interface BatchDeleteRequest {
+  ids: number[];
+  mode: DeleteMode;
+}
+
+export interface BatchDeleteResult {
+  deleted: number;
+  failed: number[];
+}
+
 export const videosApi = {
   getAll: (filter: VideoFilter = {}) =>
     api.get<ApiResponse<PagedResult<VideoFile>>>('/videos', { params: filter }).then(r => r.data),
@@ -108,4 +120,6 @@ export const videosApi = {
     api.post<ApiResponse<VideoFile>>(`/videos/${id}/fanart/from-path`, { path }).then(r => r.data),
   batchUpdate: (data: BatchUpdateRequest) =>
     api.put<ApiResponse<BatchUpdateResult>>('/videos/batch', data).then(r => r.data),
+  batchDelete: (data: BatchDeleteRequest) =>
+    api.post<ApiResponse<BatchDeleteResult>>('/videos/batch/delete', data).then(r => r.data),
 };
