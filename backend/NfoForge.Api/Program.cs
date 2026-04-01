@@ -84,3 +84,6 @@ if (!string.IsNullOrWhiteSpace(apiKey))
 app.MapControllers();
 
 app.Run();
+
+// Make Program accessible for WebApplicationFactory in integration tests
+public partial class Program { }
