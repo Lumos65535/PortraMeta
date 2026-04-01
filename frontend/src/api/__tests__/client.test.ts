@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import axios from 'axios';
 
 // We need to test the module's behavior, so we re-import fresh each time
 describe('API client', () => {
