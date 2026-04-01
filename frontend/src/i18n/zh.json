@@ -38,6 +38,8 @@
   },
   "videoDetail": {
     "backToList": "返回列表",
+    "prevFile": "上一个文件",
+    "nextFile": "下一个文件",
     "save": "保存",
     "cancel": "取消",
     "edit": "编辑",

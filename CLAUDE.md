@@ -234,11 +234,216 @@ VITE_API_KEY=your-secret-key npm run build
 15. 刮削器接口预留 `/api/scrapers`（暂不实现）
 16. Tauri 桌面客户端打包（macOS / Windows）
 
+## 键盘操作规划（待实现）
+
+计划在 VideoDetailPage 及全局添加键盘快捷键支持，提升浏览效率。
+
+### 文件导航
+| 快捷键 | 动作 |
+|--------|------|
+| `←` / `[` | 跳转到上一个文件 |
+| `→` / `]` | 跳转到下一个文件 |
+| `Backspace` / `Escape` | 返回视频列表 |
+
+### 编辑操作
+| 快捷键 | 动作 |
+|--------|------|
+| `E` | 进入编辑模式（非输入框聚焦时） |
+| `Ctrl+S` | 保存当前编辑 |
+| `Escape` | 取消编辑（编辑模式下） |
+
+### 实现思路
+- 使用 `useEffect` + `window.addEventListener('keydown', ...)` 注册全局快捷键
+- 需判断当前焦点是否在输入框/文本区域内（`event.target` 为 `INPUT`、`TEXTAREA`、`SELECT` 或 `[contenteditable]`），若是则不触发快捷键
+- 可封装为自定义 hook `useKeyboardNav`，接受 `prevId`、`nextId`、`editing` 状态作为参数
+- 注意：快捷键注册应在 `editing` 状态变化时重新绑定（deps array 更新）
+
 ## 已知限制
 
 - `Actor.AvatarPath`、`Actor.Aliases`、`Studio.LogoPath` 字段已定义在实体中，但尚未在 API 或前端使用
 
+## 插件系统规划（待实现）
+
+### 设计目标
+
+保持核心项目轻量，将依赖重型系统组件的可选功能（如视频截图、刮削器）以**插件**形式独立提供，用户按需集成。
+
+### 插件形式（方向待定，实现前需另行规划）
+
+| 方向 | 说明 |
+|------|------|
+| 后端动态加载程序集 | 插件为 .NET DLL，后端运行时按需加载 |
+| 独立 sidecar 进程 | 插件为独立进程，通过 HTTP API 与主后端通信 |
+| 前端独立页面模块 | 插件为前端页面/组件，按需挂载到路由 |
+
+### 已规划的插件
+
+- **海报生成插件**（见下方章节）：官方第一个参考插件，演示视频截图 + 图像拼接能力
+
+### 扩展方向
+
+用户和第三方开发者可基于插件接口自行开发其他插件（如刮削器、字幕管理、封面裁剪等）。
+
+---
+
 ## 后续扩展计划
+
+### 海报生成插件规划
+
+将以插件形式实现，不内置到核心项目。核心逻辑：后端提取视频帧 → 前端展示供用户选择 → 后端拼接生成海报。
+
+#### 技术选型：后端 FFmpeg CLI（最轻量）
+
+| 方案 | 说明 | 结论 |
+|------|------|------|
+| 前端 HTML5 `<video>` + Canvas | 需将完整视频传输到浏览器，5GB 文件代价不可接受 | ❌ |
+| 前端 ffmpeg.wasm | ~50MB 初始下载 + 需修改 Nginx COOP/COEP 头 + 速度慢 | ❌ |
+| **后端 FFmpeg CLI** | 视频本就在服务器，零传输，支持所有格式（MKV/MP4/AVI/TS 等） | ✅ |
+
+#### 用户交互流程
+
+1. 点击"从视频生成海报"按钮（仅在无海报时可用）
+2. 后端调用 `ffmpeg` 在视频有效范围内均匀提取 16 帧缩略图
+3. 前端弹窗以 4×4 网格展示 16 张缩略图
+4. 用户手动点选 2 张（有顺序：第 1 张在上，第 2 张在下）
+5. 后端重新提取对应 2 帧原始分辨率图像，用 `SixLabors.ImageSharp` 上下拼接
+6. 裁剪/填充为标准 **3:4** 竖屏比例（如 900×1200），保存为 `{videofile}-poster.jpg`
+
+#### API 草稿
+
+```
+POST /api/videos/{id}/poster/frames
+→ 返回 16 张缩略图（base64 或临时 URL）
+
+POST /api/videos/{id}/poster/generate
+Body: { frameIndices: [3, 11] }
+→ 拼接生成并保存海报，返回更新后的 VideoFile
+```
+
+#### 依赖增量
+
+- Docker：`apt-get install -y ffmpeg`（约 70-90MB 镜像增量）
+- NuGet：`SixLabors.ImageSharp`（纯托管库，约 5MB，无系统依赖）
+
+### 批量文件编辑规划
+
+**功能描述：** 在视频列表页多选文件，对选中文件批量赋值某些 NFO 字段（如统一设置厂牌、年份、标签等），并同步写入对应的 NFO 文件和 SQLite。
+
+#### 现状分析
+
+- 后端：无批量更新接口，当前只有 `PUT /api/videos/{id}`（单条）
+- 前端：DataGrid 配置了 `disableRowSelectionOnClick`，无复选框多选机制
+- 需从零构建，但现有 `UpdateVideoRequest` DTO 所有字段均可为 `null`（天然支持"部分字段更新"语义）
+
+#### 实现路线
+
+**后端**
+
+1. 新增 `BatchUpdateVideoRequest` DTO，包含：
+   - `ids: int[]`（目标视频 ID 列表）
+   - 与 `UpdateVideoRequest` 相同的可选字段（`null` 表示"不修改该字段"）
+2. `IVideoService` 新增 `BatchUpdateAsync(BatchUpdateVideoRequest request)` 方法
+3. 新增端点 `PUT /api/videos/batch`，对每条记录调用 NFO 写入，事务包裹保证原子性
+4. 返回 `{ updated: int, failed: int[] }`，前端据此刷新列表
+
+**前端**
+
+1. `VideosPage` DataGrid 去掉 `disableRowSelectionOnClick`，改为 `checkboxSelection`，同时保留行点击导航（通过 `onRowClick` 跳转）
+2. 选中行数 > 0 时，工具栏出现"批量编辑"按钮
+3. 弹出 `BatchEditDialog`：展示即将编辑的文件数量，提供各字段输入（留空 = 不修改），确认后调用批量 API
+4. 操作完成后清空选中状态并刷新列表
+
+#### API 草稿
+
+```
+PUT /api/videos/batch
+Body: {
+  ids: [1, 2, 3],
+  studioName: "Acme",   // null = 不修改
+  year: 2023,
+  title: null,          // 不修改
+  ...
+}
+Response: { data: { updated: 3, failed: [] }, success: true }
+```
+
+#### 注意事项
+
+- `actors` 字段批量覆盖风险较高（会清空各文件原有演员），建议批量编辑暂不开放演员字段
+- 批量操作不可撤销，Dialog 中应明确提示影响文件数量
+
+---
+
+### 文件名智能解析规划
+
+**功能描述：** 按照用户定义的正则或分词规则，从视频文件名中自动提取片段，映射到元数据字段（标题、年份、厂牌、演员等），预填后供用户确认再写入 NFO。
+
+#### 核心交互模式
+
+1. **模板解析**（推荐，对非技术用户友好）：用户定义带占位符的模板字符串，如：
+   ```
+   {studio} {title} ({year})
+   ```
+   系统将模板转换为正则，从文件名中提取对应分组。
+
+2. **自定义正则**（高级模式）：用户直接输入正则表达式，使用具名捕获组（`(?P<title>...)`）映射字段。
+
+3. **分隔符分词**（最简模式）：按空格/下划线/连字符分词，用户手动将每个 token 拖拽到对应字段。
+
+#### 实现路线
+
+**后端**
+
+1. 新增 `POST /api/videos/parse-filename` 端点（**纯计算，不写库**）：
+   - 接收 `{ pattern: string, patternType: "template"|"regex"|"split", fileNames: string[] }`
+   - 返回每个文件名的解析结果 `{ fileName, parsed: { title?, year?, studioName?, ... } }`
+2. 模板转正则的转换逻辑放在后端（C# `Regex` 库），规避各浏览器正则差异
+
+**前端**
+
+1. 在视频列表页"批量编辑"工具栏中新增"从文件名填充"入口
+2. 用户在 `FilenameParserDialog` 中：
+   - 选择解析模式（模板 / 正则 / 分词）
+   - 输入规则，实时预览当前页前 5 条文件名的解析结果（调用后端预览 API）
+   - 确认后，将解析结果批量预填到各文件的草稿元数据中
+3. 预览阶段不写入任何数据；用户点击"应用并保存"才调用批量更新 API
+
+#### 模板占位符设计
+
+| 占位符 | 映射字段 | 示例 |
+|--------|----------|------|
+| `{title}` | 标题 | `Inception` |
+| `{originaltitle}` | 原标题 | `インセプション` |
+| `{year}` | 年份（4位数字） | `2010` |
+| `{studio}` | 厂牌 | `Warner` |
+| `{actor}` | 演员（逗号分隔） | `DiCaprio` |
+| `{ignore}` | 忽略该片段 | — |
+
+#### API 草稿
+
+```
+POST /api/videos/parse-filename
+Body: {
+  pattern: "{studio} {title} ({year})",
+  patternType: "template",
+  fileNames: ["Warner Inception (2010).mkv", "..."]
+}
+Response: {
+  data: [
+    { fileName: "Warner Inception (2010).mkv",
+      parsed: { studio: "Warner", title: "Inception", year: 2010 } },
+    ...
+  ]
+}
+```
+
+#### 注意事项
+
+- 解析结果可能有歧义（如文件名中有多个括号），预览界面需允许用户手动修正单条结果
+- 正则模式应对特殊字符做安全检查，避免 ReDoS
+- 文件名解析属于辅助工具，最终以用户确认后的批量保存为准，不自动写入
+
+---
 
 ### VideoDetailPage — FileInfo Section 扩展
 当前 FileInfo 仅显示路径、大小、扫描时间、NFO/Poster/Fanart 状态。

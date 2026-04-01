@@ -38,6 +38,8 @@
   },
   "videoDetail": {
     "backToList": "Back to List",
+    "prevFile": "Previous File",
+    "nextFile": "Next File",
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",

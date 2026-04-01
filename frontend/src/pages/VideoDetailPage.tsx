@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Box, Button, Chip, CircularProgress, Dialog, DialogContent, DialogTitle,
   Divider, Grid, IconButton, Paper, Stack, TextField, Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -298,8 +300,18 @@ function CompactImagePanel({
 export default function VideoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const notify = useNotify();
   const { t } = useTranslation();
+
+  const navIds: number[] = (location.state as { ids?: number[] } | null)?.ids ?? [];
+  const currentIndex = navIds.indexOf(Number(id));
+  const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
+  const nextId = currentIndex < navIds.length - 1 ? navIds[currentIndex + 1] : null;
+
+  const navigateTo = (targetId: number) => {
+    navigate(`/videos/${targetId}`, { state: { ids: navIds } });
+  };
 
   const [video, setVideo] = useState<VideoFile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -451,8 +463,28 @@ export default function VideoDetailPage() {
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/videos')}>
           {t('videoDetail.backToList')}
         </Button>
+        {navIds.length > 0 && (
+          <Stack direction="row" spacing={0.5}>
+            <IconButton
+              size="small"
+              disabled={prevId === null}
+              onClick={() => prevId !== null && navigateTo(prevId)}
+              title={t('videoDetail.prevFile')}
+            >
+              <ArrowBackIosNewIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              disabled={nextId === null}
+              onClick={() => nextId !== null && navigateTo(nextId)}
+              title={t('videoDetail.nextFile')}
+            >
+              <ArrowForwardIosIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        )}
         <Typography variant="h5" sx={{ flexGrow: 1 }}>
-          {video.title ?? video.fileName}
+          {(video.hasNfo && video.title) ? video.title : video.fileName}
         </Typography>
         {!editing ? (
           <Button variant="contained" startIcon={<EditIcon />} onClick={handleEdit}>
