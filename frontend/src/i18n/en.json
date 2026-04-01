@@ -20,6 +20,16 @@
     "selectFields": "Select Fields",
     "pagination": "Page {{page}} / {{totalPages}}",
     "empty": "No videos found. Please add a library and scan.",
+    "batchEdit": {
+      "button": "Batch Edit",
+      "title": "Batch Edit ({{count}} files)",
+      "hint": "Empty fields will be left unchanged. Only filled fields will be overwritten.",
+      "warning": "This will overwrite existing values for the filled fields and write to NFO files. This action cannot be undone.",
+      "submit": "Apply to {{count}} files",
+      "successMsg": "Successfully updated {{updated}} files",
+      "partialMsg": "Updated {{updated}}, {{failed}} failed",
+      "failedMsg": "Failed to update all {{count}} files"
+    },
     "columns": {
       "filename": "Filename",
       "title": "Title",

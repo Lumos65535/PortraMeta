@@ -20,6 +20,16 @@
     "selectFields": "选择字段",
     "pagination": "第 {{page}} / {{totalPages}} 页",
     "empty": "暂无视频文件，请先添加媒体库并扫描",
+    "batchEdit": {
+      "button": "批量编辑",
+      "title": "批量编辑（{{count}} 个文件）",
+      "hint": "留空的字段将保持原值不变，仅填写的字段会被覆盖写入",
+      "warning": "此操作将覆盖选中文件对应字段的现有值，且会同步写入 NFO 文件，不可撤销",
+      "submit": "应用到 {{count}} 个文件",
+      "successMsg": "已成功更新 {{updated}} 个文件",
+      "partialMsg": "已更新 {{updated}} 个，{{failed}} 个失败",
+      "failedMsg": "全部 {{count}} 个文件更新失败"
+    },
     "columns": {
       "filename": "文件名",
       "title": "标题",

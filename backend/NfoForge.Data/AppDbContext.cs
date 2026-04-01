@@ -17,13 +17,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<VideoActor>()
             .HasKey(va => new { va.VideoFileId, va.ActorId });
 
-        modelBuilder.Entity<VideoFile>()
-            .HasIndex(v => v.FilePath)
-            .IsUnique();
+        modelBuilder.Entity<VideoFile>(entity =>
+        {
+            entity.HasIndex(v => v.FilePath).IsUnique();
+            entity.Property(v => v.FileName).UseCollation("NOCASE");
+            entity.Property(v => v.Title).UseCollation("NOCASE");
+            entity.Property(v => v.OriginalTitle).UseCollation("NOCASE");
+            entity.Property(v => v.Plot).UseCollation("NOCASE");
+        });
 
-        modelBuilder.Entity<Studio>()
-            .HasIndex(s => s.Name)
-            .IsUnique();
+        modelBuilder.Entity<Studio>(entity =>
+        {
+            entity.HasIndex(s => s.Name).IsUnique();
+            entity.Property(s => s.Name).UseCollation("NOCASE");
+        });
 
         modelBuilder.Entity<ExcludedFolder>()
             .HasIndex(e => new { e.LibraryId, e.Path })

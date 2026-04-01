@@ -27,7 +27,15 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         if (filter.StudioId.HasValue)
             query = query.Where(v => v.StudioId == filter.StudioId.Value);
         if (!string.IsNullOrEmpty(filter.Search))
-            query = query.Where(v => v.Title!.Contains(filter.Search) || v.FileName.Contains(filter.Search));
+        {
+            var pattern = $"%{filter.Search}%";
+            query = query.Where(v =>
+                EF.Functions.Like(v.FileName, pattern) ||
+                (v.Title != null && EF.Functions.Like(v.Title, pattern)) ||
+                (v.OriginalTitle != null && EF.Functions.Like(v.OriginalTitle, pattern)) ||
+                (v.Plot != null && EF.Functions.Like(v.Plot, pattern)) ||
+                (v.Studio != null && EF.Functions.Like(v.Studio.Name, pattern)));
+        }
 
         var total = await query.CountAsync(ct);
 
@@ -305,6 +313,76 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         var info = new FileInfo(path);
         await using var stream = File.OpenRead(path);
         return await UploadFanartAsync(id, stream, mime, info.Length, ct);
+    }
+
+    public async Task<Result<BatchUpdateResult>> BatchUpdateAsync(BatchUpdateVideoRequest request, CancellationToken ct = default)
+    {
+        if (request.Ids.Length == 0)
+            return Result<BatchUpdateResult>.Ok(new BatchUpdateResult(0, []));
+
+        // Pre-resolve studio once if needed
+        Studio? newStudio = null;
+        bool changeStudio = request.StudioName is not null;
+        if (changeStudio && !string.IsNullOrEmpty(request.StudioName))
+        {
+            newStudio = await db.Studios.FirstOrDefaultAsync(s => s.Name == request.StudioName, ct)
+                ?? new Studio { Name = request.StudioName };
+            if (newStudio.Id == 0) db.Studios.Add(newStudio);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var failed = new List<int>();
+        int updated = 0;
+
+        foreach (var id in request.Ids)
+        {
+            try
+            {
+                var v = await db.VideoFiles
+                    .Include(v => v.Studio)
+                    .Include(v => v.VideoActors).ThenInclude(va => va.Actor)
+                    .FirstOrDefaultAsync(v => v.Id == id, ct);
+
+                if (v is null)
+                {
+                    logger.LogWarning("Batch update: video not found: {Id}", id);
+                    failed.Add(id);
+                    continue;
+                }
+
+                if (request.Title is not null) v.Title = request.Title;
+                if (request.OriginalTitle is not null) v.OriginalTitle = request.OriginalTitle;
+                if (request.Year is not null) v.Year = request.Year;
+                if (request.Plot is not null) v.Plot = request.Plot;
+                if (changeStudio)
+                {
+                    v.Studio = newStudio;
+                    v.StudioId = newStudio?.Id;
+                }
+                v.NfoUpdatedAt = DateTime.UtcNow;
+
+                await db.SaveChangesAsync(ct);
+
+                var dto = ToDto(v);
+                await nfoService.WriteAsync(FileSystemScanner.NfoPath(v.FilePath), dto, ct);
+
+                if (!v.HasNfo)
+                {
+                    v.HasNfo = true;
+                    await db.SaveChangesAsync(ct);
+                }
+
+                updated++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Batch update failed for video {Id}", id);
+                failed.Add(id);
+            }
+        }
+
+        logger.LogInformation("Batch update complete: {Updated} updated, {FailedCount} failed", updated, failed.Count);
+        return Result<BatchUpdateResult>.Ok(new BatchUpdateResult(updated, [.. failed]));
     }
 
     private static string? FindImageWithAnyExtension(string videoFilePath, string suffix)

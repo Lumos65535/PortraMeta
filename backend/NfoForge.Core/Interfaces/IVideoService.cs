@@ -46,6 +46,17 @@ public record UpdateVideoRequest(
 
 public record ImportFromPathRequest(string Path);
 
+public record BatchUpdateVideoRequest(
+    int[] Ids,
+    string? Title = null,
+    string? OriginalTitle = null,
+    int? Year = null,
+    string? Plot = null,
+    string? StudioName = null
+);
+
+public record BatchUpdateResult(int Updated, int[] Failed);
+
 public interface IVideoService
 {
     Task<Result<PagedResult<VideoFileDto>>> GetAllAsync(
@@ -62,4 +73,5 @@ public interface IVideoService
         CancellationToken ct = default);
     Task<Result<VideoFileDto>> ImportPosterFromPathAsync(int id, string path, CancellationToken ct = default);
     Task<Result<VideoFileDto>> ImportFanartFromPathAsync(int id, string path, CancellationToken ct = default);
+    Task<Result<BatchUpdateResult>> BatchUpdateAsync(BatchUpdateVideoRequest request, CancellationToken ct = default);
 }

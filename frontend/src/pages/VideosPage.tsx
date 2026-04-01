@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Button, Checkbox, Chip, CircularProgress, FormControlLabel, Menu, TextField, Typography,
+  Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
+  DialogTitle, FormControlLabel, Grid, IconButton, Menu, TextField, Typography,
 } from '@mui/material';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import EditIcon from '@mui/icons-material/Edit';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useTranslation } from 'react-i18next';
 import {
   DataGrid,
@@ -13,7 +15,7 @@ import {
   type GridSortModel,
 } from '@mui/x-data-grid';
 import { videosApi } from '../api/videos';
-import type { PagedResult, VideoFile } from '../api/videos';
+import type { BatchUpdateRequest, PagedResult, VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
 
 const PAGE_SIZE = 50;
@@ -91,6 +93,85 @@ function readGridSettings(): {
   }
 }
 
+// ── Batch Edit Dialog ─────────────────────────────────────────────────────────
+interface BatchEditDialogProps {
+  open: boolean;
+  count: number;
+  onClose: () => void;
+  onSubmit: (payload: Omit<BatchUpdateRequest, 'ids'>) => Promise<void>;
+}
+
+function BatchEditDialog({ open, count, onClose, onSubmit }: BatchEditDialogProps) {
+  const { t } = useTranslation();
+  const [form, setForm] = useState({ title: '', originalTitle: '', year: '', plot: '', studioName: '' });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) setForm({ title: '', originalTitle: '', year: '', plot: '', studioName: '' });
+  }, [open]);
+
+  const hasAnyField = form.title || form.originalTitle || form.year || form.plot || form.studioName;
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        title: form.title || null,
+        originalTitle: form.originalTitle || null,
+        year: form.year ? parseInt(form.year, 10) : null,
+        plot: form.plot || null,
+        studioName: form.studioName || null,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{t('videos.batchEdit.title', { count })}</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 0.5 }}>
+          {t('videos.batchEdit.hint')}
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 8 }}>
+            <TextField label={t('videoDetail.fields.title')} fullWidth size="small" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} disabled={submitting} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField label={t('videoDetail.fields.year')} fullWidth size="small" type="number" value={form.year} onChange={e => setForm(p => ({ ...p, year: e.target.value }))} disabled={submitting} />
+          </Grid>
+          <Grid size={12}>
+            <TextField label={t('videoDetail.fields.originalTitle')} fullWidth size="small" value={form.originalTitle} onChange={e => setForm(p => ({ ...p, originalTitle: e.target.value }))} disabled={submitting} />
+          </Grid>
+          <Grid size={12}>
+            <TextField label={t('videoDetail.fields.studio')} fullWidth size="small" value={form.studioName} onChange={e => setForm(p => ({ ...p, studioName: e.target.value }))} disabled={submitting} />
+          </Grid>
+          <Grid size={12}>
+            <TextField label={t('videoDetail.fields.plot')} fullWidth size="small" multiline rows={3} value={form.plot} onChange={e => setForm(p => ({ ...p, plot: e.target.value }))} disabled={submitting} />
+          </Grid>
+          <Grid size={12}>
+            <Typography variant="caption" color="warning.main">
+              {t('videos.batchEdit.warning')}
+            </Typography>
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={submitting}>{t('common.cancel')}</Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={submitting || !hasAnyField}
+          startIcon={submitting ? <CircularProgress size={16} /> : <EditIcon />}
+        >
+          {t('videos.batchEdit.submit', { count })}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export default function VideosPage() {
   const notify = useNotify();
   const navigate = useNavigate();
@@ -103,6 +184,8 @@ export default function VideosPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fieldMenuAnchor, setFieldMenuAnchor] = useState<null | HTMLElement>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
 
   const [columnVisibilityModel, setColumnVisibilityModel] =
     useState<GridColumnVisibilityModel>(() => readGridSettings().visibilityModel);
@@ -189,9 +272,30 @@ export default function VideosPage() {
     }));
   };
 
+  const handleBatchEdit = async (payload: Omit<BatchUpdateRequest, 'ids'>) => {
+    try {
+      const res = await videosApi.batchUpdate({ ids: selectedIds, ...payload });
+      if (res.success) {
+        const { updated, failed } = res.data;
+        if (failed.length === 0) {
+          notify(t('videos.batchEdit.successMsg', { updated }), 'success');
+        } else {
+          notify(t('videos.batchEdit.partialMsg', { updated, failed: failed.length }), 'warning');
+        }
+        setSelectedIds([]);
+        setBatchDialogOpen(false);
+        load(search, page, sortModel);
+      } else {
+        notify(res.error ?? t('videos.batchEdit.failedMsg', { count: selectedIds.length }), 'error');
+      }
+    } catch (err) {
+      notify((err as Error).message, 'error');
+    }
+  };
+
   const pageCount = result ? Math.ceil(result.total / PAGE_SIZE) : 0;
 
-  const columns: GridColDef<VideoFile>[] = [
+  const dataColumns: GridColDef<VideoFile>[] = [
     {
       field: 'fileName',
       headerName: t('videos.columns.filename'),
@@ -292,6 +396,26 @@ export default function VideosPage() {
     },
   ];
 
+  const columns: GridColDef<VideoFile>[] = [
+    ...dataColumns,
+    {
+      field: '__columnMenu__',
+      headerName: '',
+      width: 48,
+      minWidth: 48,
+      maxWidth: 48,
+      sortable: false,
+      resizable: false,
+      disableColumnMenu: true,
+      renderHeader: () => (
+        <IconButton size="small" onClick={e => setFieldMenuAnchor(e.currentTarget)}>
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      ),
+      renderCell: () => null,
+    },
+  ];
+
   return (
     <Box sx={{ width: '100%', minWidth: 0, overflowX: 'hidden' }}>
       <Box
@@ -318,13 +442,15 @@ export default function VideosPage() {
             {result ? t('videos.titleWithCount', { count: result.total }) : t('videos.title')}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Button
-              startIcon={<ViewColumnIcon />}
-              variant="outlined"
-              onClick={e => setFieldMenuAnchor(e.currentTarget)}
-            >
-              {t('videos.selectFields')}
-            </Button>
+            {selectedIds.length > 0 && (
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                onClick={() => setBatchDialogOpen(true)}
+              >
+                {t('videos.batchEdit.button')}（{selectedIds.length}）
+              </Button>
+            )}
             <TextField
               label={t('videos.search')}
               size="small"
@@ -341,7 +467,7 @@ export default function VideosPage() {
         open={Boolean(fieldMenuAnchor)}
         onClose={() => setFieldMenuAnchor(null)}
       >
-        {columns.map(col => (
+        {dataColumns.map(col => (
           <Box key={col.field} sx={{ px: 1.5 }}>
             <FormControlLabel
               control={
@@ -362,12 +488,23 @@ export default function VideosPage() {
         </Box>
       ) : (
         <>
-          <Box sx={{ height: 680, width: '100%', minWidth: 0, overflowX: 'hidden' }}>
+          <Box sx={{ height: 'calc(100vh - 180px)', minHeight: 400, width: '100%', minWidth: 0, overflowX: 'hidden' }}>
             <DataGrid
               rows={result?.items ?? []}
               columns={columns}
               loading={loading}
+              checkboxSelection
               disableRowSelectionOnClick
+              rowSelectionModel={{ type: 'include', ids: new Set(selectedIds) }}
+              onRowSelectionModelChange={model => {
+                if (model.type === 'include') {
+                  setSelectedIds([...model.ids] as number[]);
+                } else {
+                  // 'exclude' means all rows selected except those in ids
+                  const excludedIds = new Set(model.ids);
+                  setSelectedIds((result?.items.map(r => r.id) ?? []).filter(id => !excludedIds.has(id)));
+                }
+              }}
               onRowClick={params => navigate(`/videos/${params.row.id}`, {
             state: { ids: result?.items.map(r => r.id) ?? [] },
           })}
@@ -406,6 +543,13 @@ export default function VideosPage() {
           )}
         </>
       )}
+
+      <BatchEditDialog
+        open={batchDialogOpen}
+        count={selectedIds.length}
+        onClose={() => setBatchDialogOpen(false)}
+        onSubmit={handleBatchEdit}
+      />
     </Box>
   );
 }
