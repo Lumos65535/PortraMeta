@@ -146,6 +146,9 @@
       "actions": "Actions"
     }
   },
+  "search": {
+    "googleImages": "Search Google Images"
+  },
   "settings": {
     "title": "Settings",
     "language": {

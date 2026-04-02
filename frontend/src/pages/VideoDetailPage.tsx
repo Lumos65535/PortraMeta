@@ -13,10 +13,12 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
 import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
 import type { VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
+import { cleanForSearch } from '../utils/filename';
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -541,6 +543,23 @@ export default function VideoDetailPage() {
                 <Grid size={{ xs: 4, sm: 4 }}>
                   <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.fanart')}</Typography>
                   <Chip label={video.hasFanart ? t('videoDetail.exists') : t('videoDetail.missing')} color={video.hasFanart ? 'success' : 'default'} size="small" />
+                </Grid>
+                <Grid size={12} sx={{ mt: 0.5 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<SearchIcon />}
+                    onClick={() => {
+                      const query = cleanForSearch(video.fileName);
+                      window.open(
+                        `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`,
+                        '_blank',
+                        'noopener,noreferrer'
+                      );
+                    }}
+                  >
+                    {t('search.googleImages')}
+                  </Button>
                 </Grid>
               </Grid>
             </Paper>
