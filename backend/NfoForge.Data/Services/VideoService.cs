@@ -287,8 +287,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
     public async Task<Result<VideoFileDto>> ImportPosterFromPathAsync(int id, string path, CancellationToken ct = default)
     {
-        if (!File.Exists(path))
-            return Result<VideoFileDto>.Fail("File not found");
+        var validationError = await ValidateImportPath(id, path, ct);
+        if (validationError is not null)
+            return Result<VideoFileDto>.Fail(validationError);
 
         var ext = Path.GetExtension(path).ToLowerInvariant();
         var mime = ext switch { ".png" => "image/png", ".webp" => "image/webp", ".jpg" or ".jpeg" => "image/jpeg", _ => null };
@@ -302,8 +303,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
     public async Task<Result<VideoFileDto>> ImportFanartFromPathAsync(int id, string path, CancellationToken ct = default)
     {
-        if (!File.Exists(path))
-            return Result<VideoFileDto>.Fail("File not found");
+        var validationError = await ValidateImportPath(id, path, ct);
+        if (validationError is not null)
+            return Result<VideoFileDto>.Fail(validationError);
 
         var ext = Path.GetExtension(path).ToLowerInvariant();
         var mime = ext switch { ".png" => "image/png", ".webp" => "image/webp", ".jpg" or ".jpeg" => "image/jpeg", _ => null };
@@ -313,6 +315,33 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         var info = new FileInfo(path);
         await using var stream = File.OpenRead(path);
         return await UploadFanartAsync(id, stream, mime, info.Length, ct);
+    }
+
+    /// <summary>
+    /// Validates that <paramref name="path"/> exists, and is within the library directory
+    /// of the video with the given <paramref name="videoId"/>.
+    /// Returns null on success, or an error message string on failure.
+    /// </summary>
+    private async Task<string?> ValidateImportPath(int videoId, string path, CancellationToken ct)
+    {
+        if (!File.Exists(path))
+            return "File not found";
+
+        var video = await db.VideoFiles.AsNoTracking()
+            .Select(v => new { v.Id, v.LibraryId })
+            .FirstOrDefaultAsync(v => v.Id == videoId, ct);
+        if (video is null)
+            return "Video not found";
+
+        var library = await db.Libraries.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == video.LibraryId, ct);
+        if (library is null)
+            return "Library not found";
+
+        if (!FileSystemScanner.IsPathWithinBoundary(library.Path, path))
+            return "Import path must be within the library directory";
+
+        return null;
     }
 
     public async Task<Result<BatchUpdateResult>> BatchUpdateAsync(BatchUpdateVideoRequest request, CancellationToken ct = default)

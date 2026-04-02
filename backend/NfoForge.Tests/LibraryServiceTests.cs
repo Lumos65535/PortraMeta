@@ -111,15 +111,36 @@ public class LibraryServiceTests : IDisposable
         _db.Libraries.Add(lib);
         await _db.SaveChangesAsync();
 
+        // Create subdirectories within the library so paths are valid
+        var dirA = Path.Combine(_tempDir, "a");
+        var dirB = Path.Combine(_tempDir, "b");
+        var dirC = Path.Combine(_tempDir, "c");
+        Directory.CreateDirectory(dirA);
+        Directory.CreateDirectory(dirB);
+        Directory.CreateDirectory(dirC);
+
         // Set initial exclusions
-        await _svc.SetExcludedFoldersAsync(lib.Id, ["/a", "/b"]);
+        await _svc.SetExcludedFoldersAsync(lib.Id, [dirA, dirB]);
         Assert.Equal(2, _db.ExcludedFolders.Count(e => e.LibraryId == lib.Id));
 
         // Replace with new set
-        await _svc.SetExcludedFoldersAsync(lib.Id, ["/c"]);
+        await _svc.SetExcludedFoldersAsync(lib.Id, [dirC]);
         var folders = _db.ExcludedFolders.Where(e => e.LibraryId == lib.Id).ToList();
         Assert.Single(folders);
         Assert.EndsWith("c", folders[0].Path);
+    }
+
+    [Fact]
+    public async Task SetExcludedFolders_PathOutsideLibrary_ReturnsFail()
+    {
+        var lib = new Library { Name = "Lib", Path = _tempDir };
+        _db.Libraries.Add(lib);
+        await _db.SaveChangesAsync();
+
+        var result = await _svc.SetExcludedFoldersAsync(lib.Id, ["/etc", "../outside"]);
+
+        Assert.False(result.Success);
+        Assert.Contains("within the library directory", result.Error!);
     }
 
     // ── ScanAsync ─────────────────────────────────────────────────────

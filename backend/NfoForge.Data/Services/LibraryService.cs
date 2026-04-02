@@ -85,9 +85,19 @@ public class LibraryService(
         var existing = await db.ExcludedFolders.Where(e => e.LibraryId == id).ToListAsync(ct);
         db.ExcludedFolders.RemoveRange(existing);
 
-        var normalized = paths
+        var normalizedPaths = paths
             .Select(p => Path.GetFullPath(p))
             .Distinct()
+            .ToList();
+
+        // Validate all paths are within the library root to prevent path traversal
+        var invalidPaths = normalizedPaths
+            .Where(p => !FileSystemScanner.IsPathWithinBoundary(lib.Path, p))
+            .ToList();
+        if (invalidPaths.Count > 0)
+            return Result.Fail($"Paths must be within the library directory: {string.Join(", ", invalidPaths)}");
+
+        var normalized = normalizedPaths
             .Select(p => new ExcludedFolder { LibraryId = id, Path = p });
 
         await db.ExcludedFolders.AddRangeAsync(normalized, ct);

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import i18n from '../i18n';
 
-const BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL ?? 'http://localhost:5001');
+const BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL ?? '');
 
 // Optional API key — set VITE_API_KEY at build time or leave empty to disable.
 const API_KEY = import.meta.env.VITE_API_KEY ?? '';

@@ -41,6 +41,21 @@ public class FileSystemScanner
         return false;
     }
 
+    // ── Path security helpers ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns true when <paramref name="targetPath"/> is equal to or a descendant of
+    /// <paramref name="basePath"/> after full path normalization.
+    /// </summary>
+    public static bool IsPathWithinBoundary(string basePath, string targetPath)
+    {
+        var fullBase = Path.GetFullPath(basePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                       + Path.DirectorySeparatorChar;
+        var fullTarget = Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                         + Path.DirectorySeparatorChar;
+        return fullTarget.StartsWith(fullBase, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ── Instance methods ───────────────────────────────────────────────────
 
     public async Task<IEnumerable<FileInfo>> FindVideoFilesRecursiveAsync(
