@@ -1,4 +1,4 @@
-# Contributing to NfoForge
+# Contributing to PortraMeta
 
 Thank you for your interest in contributing! This guide covers the development setup and coding standards.
 
@@ -11,8 +11,8 @@ Thank you for your interest in contributing! This guide covers the development s
 ## Development Setup
 
 ```bash
-git clone https://github.com/Lumos65535/nfoforge.git
-cd nfoforge
+git clone https://github.com/Lumos65535/portrameta.git
+cd portrameta
 ```
 
 ### Backend
@@ -20,7 +20,7 @@ cd nfoforge
 ```bash
 cd backend
 dotnet restore
-dotnet run --project NfoForge.Api    # Starts on http://localhost:5001
+dotnet run --project PortraMeta.Api    # Starts on http://localhost:5001
 ```
 
 The API includes Swagger UI at `http://localhost:5001/swagger` for interactive testing.
@@ -43,10 +43,10 @@ MEDIA_PATH=/path/to/videos docker compose up --build
 
 ```
 backend/
-├── NfoForge.Api/      # Controllers + Program.cs (routing, middleware)
-├── NfoForge.Core/     # Interfaces, DTOs, models (no implementation)
-├── NfoForge.Data/     # EF Core DbContext, entities, service implementations
-└── NfoForge.Tests/    # xUnit tests
+├── PortraMeta.Api/      # Controllers + Program.cs (routing, middleware)
+├── PortraMeta.Core/     # Interfaces, DTOs, models (no implementation)
+├── PortraMeta.Data/     # EF Core DbContext, entities, service implementations
+└── PortraMeta.Tests/    # xUnit tests
 
 frontend/src/
 ├── api/               # Axios client and API functions
@@ -112,8 +112,8 @@ When modifying entities:
 ```bash
 cd backend
 dotnet ef migrations add <MigrationName> \
-  --project NfoForge.Data \
-  --startup-project NfoForge.Api
+  --project PortraMeta.Data \
+  --startup-project PortraMeta.Api
 ```
 
 Migrations are applied automatically on startup.

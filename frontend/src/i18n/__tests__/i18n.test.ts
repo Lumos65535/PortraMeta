@@ -39,7 +39,7 @@ describe('i18n', () => {
   it('setLanguage persists to localStorage', async () => {
     const { setLanguage } = await import('../index');
     setLanguage('en');
-    expect(localStorage.getItem('nfoforge_lang')).toBe('en');
+    expect(localStorage.getItem('portrameta_lang')).toBe('en');
   });
 
   it('setLanguage changes i18n language', async () => {

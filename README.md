@@ -1,9 +1,9 @@
-# NfoForge
+# PortraMeta
 
 A local video metadata management tool that generates standard [Kodi-compatible NFO files](https://kodi.wiki/view/NFO_files/Movies) and portrait-oriented posters. Built for [Infuse](https://firecore.com/infuse), Kodi, Jellyfin, and other media players that read NFO metadata.
 
 <!-- TODO: Add screenshot here -->
-<!-- ![NfoForge Screenshot](docs/screenshots/overview.png) -->
+<!-- ![PortraMeta Screenshot](docs/screenshots/overview.png) -->
 
 ## Features
 
@@ -35,8 +35,8 @@ A local video metadata management tool that generates standard [Kodi-compatible 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/Lumos65535/nfoforge.git
-   cd nfoforge
+   git clone https://github.com/Lumos65535/portrameta.git
+   cd portrameta
    ```
 
 2. Start the services:
@@ -67,7 +67,7 @@ The backend API is available at **http://localhost:5000** and Swagger docs at **
 ```bash
 # Backend
 cd backend
-dotnet run --project NfoForge.Api    # http://localhost:5001
+dotnet run --project PortraMeta.Api    # http://localhost:5001
 
 # Frontend (in a separate terminal)
 cd frontend
@@ -78,12 +78,12 @@ npm run dev                          # http://localhost:3000
 ## Project Structure
 
 ```
-nfoforge/
+portrameta/
 ├── backend/
-│   ├── NfoForge.Api/        # Web API controllers, Program.cs
-│   ├── NfoForge.Core/       # Interfaces, models, DTOs
-│   ├── NfoForge.Data/       # EF Core, entities, service implementations
-│   └── NfoForge.Tests/      # Unit tests (xUnit)
+│   ├── PortraMeta.Api/        # Web API controllers, Program.cs
+│   ├── PortraMeta.Core/       # Interfaces, models, DTOs
+│   ├── PortraMeta.Data/       # EF Core, entities, service implementations
+│   └── PortraMeta.Tests/      # Unit tests (xUnit)
 ├── frontend/
 │   └── src/
 │       ├── api/             # Axios API client
@@ -97,7 +97,7 @@ nfoforge/
 
 ## NFO Format
 
-NfoForge generates standard Kodi Movie NFO files, compatible with Infuse, Jellyfin, Emby, and Plex (with plugins):
+PortraMeta generates standard Kodi Movie NFO files, compatible with Infuse, Jellyfin, Emby, and Plex (with plugins):
 
 ```xml
 <movie>
@@ -127,7 +127,7 @@ File naming convention (all files co-located with the video):
 
 ## Architecture
 
-NfoForge treats **NFO files as the source of truth** for metadata. SQLite serves only as a fast index/cache for querying and filtering. All write operations persist to both the NFO file and the database. Rescanning a library re-syncs data from NFO files into SQLite.
+PortraMeta treats **NFO files as the source of truth** for metadata. SQLite serves only as a fast index/cache for querying and filtering. All write operations persist to both the NFO file and the database. Rescanning a library re-syncs data from NFO files into SQLite.
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐

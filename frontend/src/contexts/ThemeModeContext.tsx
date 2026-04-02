@@ -10,7 +10,7 @@ interface ThemeModeContextValue {
 
 const ThemeModeContext = createContext<ThemeModeContextValue | null>(null);
 
-const STORAGE_KEY = 'nfoforge_theme';
+const STORAGE_KEY = 'portrameta_theme';
 
 function getSystemMode(): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

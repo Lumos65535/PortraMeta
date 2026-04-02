@@ -29,7 +29,7 @@ function Layout() {
     <Box sx={{ display: 'flex', width: '100%', minWidth: 0, overflowX: 'hidden' }}>
       <AppBar position="fixed" sx={{ zIndex: t => t.zIndex.drawer + 1 }}>
         <Toolbar>
-          <Typography variant="h6">NfoForge</Typography>
+          <Typography variant="h6">PortraMeta</Typography>
         </Toolbar>
       </AppBar>
 

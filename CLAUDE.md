@@ -1,4 +1,4 @@
-# NfoForge
+# PortraMeta
 
 A local video metadata management tool that generates NFO files and portrait-oriented posters for Infuse users.
 
@@ -16,12 +16,12 @@ A local video metadata management tool that generates NFO files and portrait-ori
 ## Project Structure
 
 ```
-nfoforge/
+portrameta/
 ├── backend/
-│   ├── NfoForge.Api/          # Web API entry point, Controllers, Program.cs
-│   ├── NfoForge.Core/         # Interface definitions (ILibraryService, IVideoService, INfoParser, INfoService), Models (Result<T>, PagedResult<T>), DTOs
-│   ├── NfoForge.Data/         # EF Core DbContext, Entities, Migrations, Service implementations, NfoParser, NfoService, FileSystemScanner
-│   └── NfoForge.Tests/        # xUnit unit tests (to be implemented)
+│   ├── PortraMeta.Api/          # Web API entry point, Controllers, Program.cs
+│   ├── PortraMeta.Core/         # Interface definitions (ILibraryService, IVideoService, INfoParser, INfoService), Models (Result<T>, PagedResult<T>), DTOs
+│   ├── PortraMeta.Data/         # EF Core DbContext, Entities, Migrations, Service implementations, NfoParser, NfoService, FileSystemScanner
+│   └── PortraMeta.Tests/        # xUnit unit tests (to be implemented)
 ├── frontend/
 │   ├── src/
 │   │   ├── api/               # axios client (client.ts), librariesApi, videosApi
@@ -39,10 +39,10 @@ nfoforge/
 ```bash
 # Backend
 cd backend
-dotnet run --project NfoForge.Api          # Start API (port 5000)
+dotnet run --project PortraMeta.Api          # Start API (port 5000)
 dotnet test                                # Run tests
-dotnet ef migrations add <Name> --project NfoForge.Data --startup-project NfoForge.Api
-dotnet ef database update --project NfoForge.Data --startup-project NfoForge.Api
+dotnet ef migrations add <Name> --project PortraMeta.Data --startup-project PortraMeta.Api
+dotnet ef database update --project PortraMeta.Data --startup-project PortraMeta.Api
 
 # Frontend
 cd frontend
@@ -83,7 +83,7 @@ docker compose down                        # Stop
 - When adding new pages or components, first add the corresponding keys to both translation files, then use `useTranslation()` in the component
 - Translation keys are grouped by page/module (`nav.*`, `common.*`, `videos.*`, `videoDetail.*`, `libraries.*`, `settings.*`)
 - Dynamic content (strings with variables) uses i18next interpolation syntax: `t('key', { name: value })`, with `{{name}}` in the translation file
-- Default language is Chinese; user language preference is persisted to `localStorage` (key: `nfoforge_lang`)
+- Default language is Chinese; user language preference is persisted to `localStorage` (key: `portrameta_lang`)
 
 ### Logging Standards
 - Inject `ILogger<T>` into all Services

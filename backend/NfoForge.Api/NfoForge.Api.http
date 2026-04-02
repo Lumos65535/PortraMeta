@@ -1,6 +1,0 @@
-@NfoForge.Api_HostAddress = http://localhost:5058
-
-GET {{NfoForge.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

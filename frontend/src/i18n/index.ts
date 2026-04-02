@@ -3,7 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import zh from './zh.json';
 import en from './en.json';
 
-const STORAGE_KEY = 'nfoforge_lang';
+const STORAGE_KEY = 'portrameta_lang';
 
 i18n
   .use(initReactI18next)

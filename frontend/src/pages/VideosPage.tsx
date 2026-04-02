@@ -20,7 +20,7 @@ import type { BatchUpdateRequest, DeleteMode, PagedResult, VideoFile } from '../
 import { useNotify } from '../contexts/NotifyContext';
 
 const PAGE_SIZE = 50;
-const STORAGE_KEY = 'nfoforge_videos_grid_v1';
+const STORAGE_KEY = 'portrameta_videos_grid_v1';
 
 const DEFAULT_VISIBILITY: GridColumnVisibilityModel = {
   fileName: true,
@@ -228,7 +228,7 @@ function DeleteConfirmDialog({ open, count, onClose, onConfirm }: DeleteConfirmD
   );
 }
 
-const FILE_MGMT_KEY = 'nfoforge_file_management';
+const FILE_MGMT_KEY = 'portrameta_file_management';
 
 export default function VideosPage() {
   const notify = useNotify();

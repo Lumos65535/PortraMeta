@@ -6,7 +6,7 @@ import {
 import { setLanguage } from '../i18n';
 import { type ThemeMode, useThemeMode } from '../contexts/ThemeModeContext';
 
-const FILE_MGMT_KEY = 'nfoforge_file_management';
+const FILE_MGMT_KEY = 'portrameta_file_management';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();

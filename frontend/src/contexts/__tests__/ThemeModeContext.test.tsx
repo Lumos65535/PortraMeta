@@ -41,7 +41,7 @@ describe('ThemeModeContext', () => {
   });
 
   it('reads initial value from localStorage', () => {
-    localStorage.setItem('nfoforge_theme', 'dark');
+    localStorage.setItem('portrameta_theme', 'dark');
 
     const { getByTestId } = render(
       <ThemeModeProvider>
@@ -64,7 +64,7 @@ describe('ThemeModeContext', () => {
       getByText('Set Dark').click();
     });
 
-    expect(localStorage.getItem('nfoforge_theme')).toBe('dark');
+    expect(localStorage.getItem('portrameta_theme')).toBe('dark');
   });
 
   it('resolvedMode returns system preference when themeMode is system', () => {
