@@ -146,6 +146,9 @@
       "actions": "操作"
     }
   },
+  "search": {
+    "googleImages": "Google 图片搜索"
+  },
   "settings": {
     "title": "设置",
     "language": {
