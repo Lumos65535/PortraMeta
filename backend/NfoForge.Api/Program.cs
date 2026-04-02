@@ -8,6 +8,40 @@ using NfoForge.Data.Utilities;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "NfoForge API",
+        Version = "v1",
+        Description = "Local video metadata management API for generating NFO files and managing posters."
+    });
+
+    // Show API Key auth in Swagger UI
+    var apiKeyScheme = new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "X-Api-Key",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Description = "Optional API key authentication. Set Auth:ApiKey in configuration to enable."
+    };
+    options.AddSecurityDefinition("ApiKey", apiKeyScheme);
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "ApiKey"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var dbPath = builder.Configuration["Database:Path"] ?? "nfoforge.db";
 builder.Services.AddDbContext<AppDbContext>(opt =>
@@ -58,6 +92,12 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
 }
+
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "NfoForge API v1");
+});
 
 app.UseCors();
 
