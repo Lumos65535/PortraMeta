@@ -102,6 +102,10 @@
       "pathPlaceholder": "粘贴本地文件路径，如 /path/to/image.jpg",
       "pathConfirm": "确认"
     },
+    "delete": "删除",
+    "deleteSuccess": "删除成功",
+    "deleteFailed": "删除失败",
+    "editImage": "编辑图片",
     "commaSeparatedHint": "多个值请用逗号分隔",
     "addRating": "添加评分",
     "ratingSource": "来源",

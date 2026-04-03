@@ -102,6 +102,10 @@
       "pathPlaceholder": "Paste local file path, e.g. /path/to/image.jpg",
       "pathConfirm": "Confirm"
     },
+    "delete": "Delete",
+    "deleteSuccess": "Deleted successfully",
+    "deleteFailed": "Delete failed",
+    "editImage": "Edit Image",
     "commaSeparatedHint": "Separate multiple values with commas",
     "addRating": "Add Rating",
     "ratingSource": "Source",

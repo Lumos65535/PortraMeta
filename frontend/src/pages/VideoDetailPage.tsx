@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  Box, Button, Chip, CircularProgress, Dialog, DialogContent, DialogTitle,
-  Divider, Grid, IconButton, Paper, Stack, TextField, Typography,
+  Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
+  DialogTitle, Divider, FormControlLabel, Grid, IconButton, Paper, Radio,
+  RadioGroup, Stack, TextField, Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -16,7 +17,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
-import type { VideoFile } from '../api/videos';
+import type { DeleteMode, VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
 import { cleanForSearch } from '../utils/filename';
 import { getFieldVisibility, isFieldVisible } from '../utils/fieldVisibility';
@@ -128,13 +129,6 @@ function ImageUploadDialog({ open, label, onClose, onFile, onPathImport }: Image
   const [pathValue, setPathValue] = useState('');
   const [pathSubmitting, setPathSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setPathValue('');
-      setTimeout(() => dropZoneRef.current?.focus(), 50);
-    }
-  }, [open]);
-
   const busy = submitting || pathSubmitting;
 
   const handleFile = async (f: File) => {
@@ -144,6 +138,29 @@ function ImageUploadDialog({ open, label, onClose, onFile, onPathImport }: Image
     setSubmitting(false);
     if (ok) onClose();
   };
+
+  const handleFileRef = useRef(handleFile);
+  const busyRef = useRef(busy);
+  useEffect(() => { handleFileRef.current = handleFile; busyRef.current = busy; });
+
+  useEffect(() => {
+    if (!open) return;
+    setPathValue('');
+
+    const handleWindowPaste = (e: ClipboardEvent) => {
+      if (busyRef.current) return;
+      const item = Array.from(e.clipboardData?.items ?? [])
+        .find(i => i.kind === 'file' && i.type.startsWith('image/'));
+      const f = item?.getAsFile();
+      if (f) {
+        e.preventDefault();
+        handleFileRef.current(f);
+      }
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [open]);
 
   const handlePathConfirm = async () => {
     const p = pathValue.trim();
@@ -189,12 +206,6 @@ function ImageUploadDialog({ open, label, onClose, onFile, onPathImport }: Image
             e.preventDefault();
             setDragOver(false);
             const f = e.dataTransfer.files[0];
-            if (f && !busy) handleFile(f);
-          }}
-          onPaste={e => {
-            const item = Array.from(e.clipboardData.items)
-              .find(i => i.kind === 'file' && i.type.startsWith('image/'));
-            const f = item?.getAsFile();
             if (f && !busy) handleFile(f);
           }}
         >
@@ -263,6 +274,105 @@ function ImageUploadDialog({ open, label, onClose, onFile, onPathImport }: Image
   );
 }
 
+// ── Delete Confirm Dialog ─────────────────────────────────────────────────────
+interface DeleteConfirmDialogProps {
+  open: boolean;
+  count: number;
+  onClose: () => void;
+  onConfirm: (mode: DeleteMode) => Promise<void>;
+}
+
+function DeleteConfirmDialog({ open, count, onClose, onConfirm }: DeleteConfirmDialogProps) {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<DeleteMode>('Metadata');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) setMode('Metadata');
+  }, [open]);
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await onConfirm(mode);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{t('videos.batchDelete.title', { count })}</DialogTitle>
+      <DialogContent>
+        <RadioGroup value={mode} onChange={e => setMode(e.target.value as DeleteMode)}>
+          <FormControlLabel value="Metadata" control={<Radio />} label={t('videos.batchDelete.modeMetadata')} disabled={submitting} />
+          <FormControlLabel value="Video" control={<Radio />} label={t('videos.batchDelete.modeVideo')} disabled={submitting} />
+          <FormControlLabel value="All" control={<Radio />} label={t('videos.batchDelete.modeAll')} disabled={submitting} />
+        </RadioGroup>
+        <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1.5 }}>
+          {t('videos.batchDelete.warning')}
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={submitting}>{t('common.cancel')}</Button>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={handleConfirm}
+          disabled={submitting}
+          startIcon={submitting ? <CircularProgress size={16} /> : <DeleteIcon />}
+        >
+          {t('videos.batchDelete.submit')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ── Image Preview Dialog ─────────────────────────────────────────────────────
+interface ImagePreviewDialogProps {
+  open: boolean;
+  imageUrl: string;
+  imageAlt: string;
+  onClose: () => void;
+  onEdit: () => void;
+}
+
+function ImagePreviewDialog({ open, imageUrl, imageAlt, onClose, onEdit }: ImagePreviewDialogProps) {
+  const { t } = useTranslation();
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth={false} fullScreen>
+      <Box
+        onClick={onClose}
+        sx={{
+          position: 'relative', width: '100%', height: '100%',
+          bgcolor: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+        }}
+      >
+        <IconButton onClick={onClose} sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 1 }}>
+          <CloseIcon />
+        </IconButton>
+        <Box
+          component="img"
+          src={imageUrl}
+          alt={imageAlt}
+          onClick={e => e.stopPropagation()}
+          sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor: 'default' }}
+        />
+        <Button
+          variant="contained"
+          startIcon={<EditIcon />}
+          onClick={e => { e.stopPropagation(); onEdit(); }}
+          sx={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)' }}
+        >
+          {t('videoDetail.editImage')}
+        </Button>
+      </Box>
+    </Dialog>
+  );
+}
+
 // ── Compact image panel ────────────────────────────────────────────────────────
 interface CompactImagePanelProps {
   label: string;
@@ -273,6 +383,7 @@ interface CompactImagePanelProps {
   noImageText: string;
   aspectRatio: string;
   onOpenDialog: () => void;
+  onPreview?: () => void;
   onDrop: (file: File) => void;
   onDragOver: () => void;
   onDragLeave: () => void;
@@ -280,7 +391,7 @@ interface CompactImagePanelProps {
 
 function CompactImagePanel({
   label, hasImage, imageUrl, imageAlt, dragOver,
-  noImageText, aspectRatio, onOpenDialog, onDrop, onDragOver, onDragLeave,
+  noImageText, aspectRatio, onOpenDialog, onPreview, onDrop, onDragOver, onDragLeave,
 }: CompactImagePanelProps) {
   const { t } = useTranslation();
   return (
@@ -298,7 +409,7 @@ function CompactImagePanel({
         transition: 'border-color 0.2s',
       }}
       tabIndex={0}
-      onClick={onOpenDialog}
+      onClick={hasImage && onPreview ? onPreview : onOpenDialog}
       onDragOver={e => { e.preventDefault(); onDragOver(); }}
       onDragLeave={onDragLeave}
       onDrop={e => {
@@ -384,6 +495,9 @@ export default function VideoDetailPage() {
   const [dragOverFanart, setDragOverFanart] = useState(false);
 
   const [dialogTarget, setDialogTarget] = useState<'poster' | 'fanart' | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<'poster' | 'fanart' | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fileManagement] = useState(() => localStorage.getItem('portrameta_file_management') === 'true');
   const [fieldVis] = useState<FieldVisibility>(getFieldVisibility);
 
   useEffect(() => {
@@ -400,6 +514,21 @@ export default function VideoDetailPage() {
       .catch(err => notify((err as Error).message, 'error'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleDelete = async (mode: DeleteMode) => {
+    if (!video) return;
+    try {
+      const res = await videosApi.batchDelete({ ids: [video.id], mode });
+      if (res.success) {
+        notify(t('videoDetail.deleteSuccess'), 'success');
+        navigate('/videos');
+      } else {
+        notify(res.error ?? t('videoDetail.deleteFailed'), 'error');
+      }
+    } catch (err) {
+      notify((err as Error).message, 'error');
+    }
+  };
 
   const handleEdit = () => {
     if (video) setForm(toEditState(video));
@@ -572,9 +701,20 @@ export default function VideoDetailPage() {
           {(video.hasNfo && video.title) ? video.title : video.fileName}
         </Typography>
         {!editing ? (
-          <Button variant="contained" startIcon={<EditIcon />} onClick={handleEdit}>
-            {t('videoDetail.edit')}
-          </Button>
+          <Stack direction="row" spacing={1}>
+            {fileManagement && (
+              <Button
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                {t('videoDetail.delete')}
+              </Button>
+            )}
+            <Button variant="contained" startIcon={<EditIcon />} onClick={handleEdit}>
+              {t('videoDetail.edit')}
+            </Button>
+          </Stack>
         ) : (
           <Stack direction="row" spacing={1}>
             <Button
@@ -1065,6 +1205,7 @@ export default function VideoDetailPage() {
               noImageText={t('videoDetail.noPoster')}
               aspectRatio="3/4"
               onOpenDialog={() => setDialogTarget('poster')}
+              onPreview={() => setPreviewTarget('poster')}
               onDrop={f => handleImageUpload(
                 f, videosApi.uploadPoster, () => setPosterKey(k => k + 1),
                 'videoDetail.posterUploadSuccess', 'videoDetail.posterUploadFailed',
@@ -1083,6 +1224,7 @@ export default function VideoDetailPage() {
               noImageText={t('videoDetail.noFanart')}
               aspectRatio="16/9"
               onOpenDialog={() => setDialogTarget('fanart')}
+              onPreview={() => setPreviewTarget('fanart')}
               onDrop={f => handleImageUpload(
                 f, videosApi.uploadFanart, () => setFanartKey(k => k + 1),
                 'videoDetail.fanartUploadSuccess', 'videoDetail.fanartUploadFailed',
@@ -1107,6 +1249,29 @@ export default function VideoDetailPage() {
           dialogTarget === 'fanart' ? 'videoDetail.fanartUploadFailed' : 'videoDetail.posterUploadFailed',
         )}
         onPathImport={handlePathImport}
+      />
+
+      {/* Image preview dialog */}
+      <ImagePreviewDialog
+        open={previewTarget !== null}
+        imageUrl={previewTarget === 'fanart'
+          ? `${videosApi.getFanartUrl(video.id)}?v=${fanartKey}`
+          : `${videosApi.getPosterUrl(video.id)}?v=${posterKey}`}
+        imageAlt={video.title ?? video.fileName}
+        onClose={() => setPreviewTarget(null)}
+        onEdit={() => {
+          const target = previewTarget;
+          setPreviewTarget(null);
+          setTimeout(() => setDialogTarget(target), 150);
+        }}
+      />
+
+      {/* Delete confirm dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        count={1}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDelete}
       />
     </Box>
   );
