@@ -7,10 +7,12 @@ A local video metadata management tool that generates standard [Kodi-compatible 
 
 ## Features
 
+- **Full Kodi NFO Standard** — Read and write all standard [Kodi Movie NFO](https://kodi.wiki/view/NFO_files/Movies) fields: title, year, plot, studio, director, genre, runtime, content rating (MPAA), ratings, tags, unique IDs (IMDb/TMDB), actors, and more
+- **Round-trip NFO Preservation** — When editing, unknown/custom XML elements in existing NFO files are preserved rather than stripped
 - **Library Scanning** — Add media directories and scan for video files with automatic NFO/poster/fanart detection
-- **NFO Read & Write** — Parse existing NFO files and generate standard Kodi Movie NFO format
-- **Metadata Editing** — Edit title, year, studio, plot, original title, and actors per video
-- **Batch Editing** — Select multiple videos and update shared fields (studio, year, etc.) in one operation
+- **Metadata Editing** — Edit all NFO fields per video with a clean detail page UI
+- **Configurable Detail Page** — Choose which metadata fields to display and edit via Settings (grouped by priority tier)
+- **Batch Editing** — Select multiple videos and update visible fields in one operation; editable fields stay in sync with your field visibility settings
 - **Batch Delete** — Remove metadata files, video files, or both for selected videos
 - **Poster & Fanart Management** — Upload, drag-and-drop, paste from clipboard, or import from local path
 - **Excluded Folders** — Configure subdirectories to skip during library scans
@@ -97,27 +99,31 @@ portrameta/
 
 ## NFO Format
 
-PortraMeta generates standard Kodi Movie NFO files, compatible with Infuse, Jellyfin, Emby, and Plex (with plugins):
+PortraMeta generates standard [Kodi Movie NFO](https://kodi.wiki/view/NFO_files/Movies) files, compatible with Infuse, Jellyfin, Emby, and Plex (with plugins).
 
-```xml
-<movie>
-  <title>Video Title</title>
-  <originaltitle>Original Title</originaltitle>
-  <year>2024</year>
-  <plot>Description text.</plot>
-  <studio>Studio Name</studio>
-  <actor>
-    <name>Actor Name</name>
-    <role>Role</role>
-    <order>0</order>
-  </actor>
-</movie>
-```
+### Supported Fields
 
-File naming convention (all files co-located with the video):
-- `video.nfo` — metadata
-- `video-poster.jpg` — portrait poster (3:4)
-- `video-fanart.jpg` — landscape fanart (16:9, optional)
+| Category | Fields |
+|----------|--------|
+| Basic | title, originaltitle, sorttitle, year, premiered |
+| Description | plot, outline, tagline |
+| Classification | genre, mpaa, tag |
+| Production | studio, director, credits (writer), country |
+| Ratings | ratings (multi-source with votes), userrating, top250 |
+| Identifiers | uniqueid (IMDb, TMDB, etc.) |
+| Cast | actor (name, role, order) |
+| Collection | set |
+| Misc | runtime, dateadded |
+
+For the complete NFO specification, see the [Kodi Wiki — NFO Files/Movies](https://kodi.wiki/view/NFO_files/Movies).
+
+### File Naming Convention
+
+All files are co-located with the video:
+
+- `{video}.nfo` — metadata
+- `{video}-poster.jpg` — portrait poster (3:4)
+- `{video}-fanart.jpg` — landscape fanart (16:9, optional)
 
 ## Documentation
 
