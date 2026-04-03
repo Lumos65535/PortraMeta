@@ -19,6 +19,8 @@ import { videosApi } from '../api/videos';
 import type { VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
 import { cleanForSearch } from '../utils/filename';
+import { getFieldVisibility, isFieldVisible } from '../utils/fieldVisibility';
+import type { FieldVisibility } from '../utils/fieldVisibility';
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -34,6 +36,18 @@ interface ActorEditState {
   role: string;
 }
 
+interface RatingEditState {
+  name: string;
+  value: string;
+  votes: string;
+  max: string;
+}
+
+interface UniqueIdEditState {
+  type: string;
+  value: string;
+}
+
 interface EditState {
   title: string;
   originalTitle: string;
@@ -41,6 +55,24 @@ interface EditState {
   plot: string;
   studioName: string;
   actors: ActorEditState[];
+  // Extended fields
+  directors: string;
+  genres: string;
+  runtime: string;
+  mpaa: string;
+  premiered: string;
+  ratings: RatingEditState[];
+  userRating: string;
+  uniqueIds: UniqueIdEditState[];
+  tags: string;
+  sortTitle: string;
+  outline: string;
+  tagline: string;
+  credits: string;
+  countries: string;
+  setName: string;
+  dateAdded: string;
+  top250: string;
 }
 
 function toEditState(v: VideoFile): EditState {
@@ -51,7 +83,31 @@ function toEditState(v: VideoFile): EditState {
     plot: v.plot ?? '',
     studioName: v.studioName ?? '',
     actors: (v.actors ?? []).map(a => ({ name: a.name, role: a.role ?? '' })),
+    directors: v.directors?.join(', ') ?? '',
+    genres: v.genres?.join(', ') ?? '',
+    runtime: v.runtime?.toString() ?? '',
+    mpaa: v.mpaa ?? '',
+    premiered: v.premiered ?? '',
+    ratings: (v.ratings ?? []).map(r => ({
+      name: r.name, value: r.value.toString(), votes: r.votes.toString(), max: r.max.toString(),
+    })),
+    userRating: v.userRating?.toString() ?? '',
+    uniqueIds: Object.entries(v.uniqueIds ?? {}).map(([type, value]) => ({ type, value })),
+    tags: v.tags?.join(', ') ?? '',
+    sortTitle: v.sortTitle ?? '',
+    outline: v.outline ?? '',
+    tagline: v.tagline ?? '',
+    credits: v.credits?.join(', ') ?? '',
+    countries: v.countries?.join(', ') ?? '',
+    setName: v.setName ?? '',
+    dateAdded: v.dateAdded ?? '',
+    top250: v.top250?.toString() ?? '',
   };
+}
+
+function splitComma(s: string): string[] | null {
+  const items = s.split(',').map(x => x.trim()).filter(Boolean);
+  return items.length > 0 ? items : null;
 }
 
 // ── Upload Dialog ─────────────────────────────────────────────────────────────
@@ -328,6 +384,7 @@ export default function VideoDetailPage() {
   const [dragOverFanart, setDragOverFanart] = useState(false);
 
   const [dialogTarget, setDialogTarget] = useState<'poster' | 'fanart' | null>(null);
+  const [fieldVis] = useState<FieldVisibility>(getFieldVisibility);
 
   useEffect(() => {
     if (!id) return;
@@ -367,6 +424,32 @@ export default function VideoDetailPage() {
         actors: form.actors
           .filter(a => a.name.trim())
           .map((a, i) => ({ name: a.name.trim(), role: a.role.trim() || null, order: i })),
+        directors: splitComma(form.directors),
+        genres: splitComma(form.genres),
+        runtime: form.runtime ? parseInt(form.runtime, 10) : null,
+        mpaa: form.mpaa || null,
+        premiered: form.premiered || null,
+        ratings: form.ratings
+          .filter(r => r.value)
+          .map(r => ({
+            name: r.name || 'default',
+            value: parseFloat(r.value) || 0,
+            votes: parseInt(r.votes, 10) || 0,
+            max: parseInt(r.max, 10) || 10,
+          })),
+        userRating: form.userRating ? parseInt(form.userRating, 10) : null,
+        uniqueIds: form.uniqueIds.length > 0
+          ? Object.fromEntries(form.uniqueIds.filter(u => u.type && u.value).map(u => [u.type, u.value]))
+          : null,
+        tags: splitComma(form.tags),
+        sortTitle: form.sortTitle || null,
+        outline: form.outline || null,
+        tagline: form.tagline || null,
+        credits: splitComma(form.credits),
+        countries: splitComma(form.countries),
+        setName: form.setName || null,
+        dateAdded: form.dateAdded || null,
+        top250: form.top250 ? parseInt(form.top250, 10) : null,
       });
       if (res.success) {
         setVideo(res.data);
@@ -435,7 +518,7 @@ export default function VideoDetailPage() {
     }
   };
 
-  const field = (key: Exclude<keyof EditState, 'actors'>) => ({
+  const field = (key: Exclude<keyof EditState, 'actors' | 'ratings' | 'uniqueIds'>) => ({
     value: form?.[key] ?? '',
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm(prev => prev ? { ...prev, [key]: e.target.value } : prev),
@@ -572,44 +655,329 @@ export default function VideoDetailPage() {
               <Divider sx={{ mb: 2 }} />
               {editing && form ? (
                 <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 8 }}>
-                    <TextField label={t('videoDetail.fields.title')} fullWidth size="small" {...field('title')} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField label={t('videoDetail.fields.year')} fullWidth size="small" type="number" {...field('year')} />
-                  </Grid>
-                  <Grid size={12}>
-                    <TextField label={t('videoDetail.fields.originalTitle')} fullWidth size="small" {...field('originalTitle')} />
-                  </Grid>
-                  <Grid size={12}>
-                    <TextField label={t('videoDetail.fields.studio')} fullWidth size="small" {...field('studioName')} />
-                  </Grid>
-                  <Grid size={12}>
-                    <TextField label={t('videoDetail.fields.plot')} fullWidth multiline rows={4} {...field('plot')} />
-                  </Grid>
+                  {isFieldVisible(fieldVis, 'title') && (
+                    <Grid size={{ xs: 12, sm: 8 }}>
+                      <TextField label={t('videoDetail.fields.title')} fullWidth size="small" {...field('title')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'year') && (
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField label={t('videoDetail.fields.year')} fullWidth size="small" type="number" {...field('year')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'originalTitle') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.originalTitle')} fullWidth size="small" {...field('originalTitle')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'sortTitle') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.sortTitle')} fullWidth size="small" {...field('sortTitle')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'studioName') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.studio')} fullWidth size="small" {...field('studioName')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'directors') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.directors')} fullWidth size="small" {...field('directors')}
+                        helperText={t('videoDetail.commaSeparatedHint')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'genres') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.genres')} fullWidth size="small" {...field('genres')}
+                        helperText={t('videoDetail.commaSeparatedHint')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'tags') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.tags')} fullWidth size="small" {...field('tags')}
+                        helperText={t('videoDetail.commaSeparatedHint')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'runtime') && (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <TextField label={t('videoDetail.fields.runtime')} fullWidth size="small" type="number" {...field('runtime')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'mpaa') && (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <TextField label={t('videoDetail.fields.mpaa')} fullWidth size="small" {...field('mpaa')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'premiered') && (
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField label={t('videoDetail.fields.premiered')} fullWidth size="small" {...field('premiered')}
+                        placeholder="YYYY-MM-DD" />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'userRating') && (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <TextField label={t('videoDetail.fields.userRating')} fullWidth size="small" type="number"
+                        {...field('userRating')} inputProps={{ min: 0, max: 10 }} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'top250') && (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <TextField label={t('videoDetail.fields.top250')} fullWidth size="small" type="number" {...field('top250')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'ratings') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('videoDetail.fields.ratings')}</Typography>
+                      <Stack spacing={1}>
+                        {form.ratings.map((r, idx) => (
+                          <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <TextField size="small" label={t('videoDetail.ratingSource')} value={r.name}
+                              onChange={e => setForm(prev => prev ? { ...prev, ratings: prev.ratings.map((x, i) => i === idx ? { ...x, name: e.target.value } : x) } : prev)}
+                              sx={{ flex: 1 }} disabled={saving} />
+                            <TextField size="small" label={t('videoDetail.ratingValue')} value={r.value} type="number"
+                              onChange={e => setForm(prev => prev ? { ...prev, ratings: prev.ratings.map((x, i) => i === idx ? { ...x, value: e.target.value } : x) } : prev)}
+                              sx={{ flex: 1 }} disabled={saving} />
+                            <TextField size="small" label={t('videoDetail.ratingVotes')} value={r.votes} type="number"
+                              onChange={e => setForm(prev => prev ? { ...prev, ratings: prev.ratings.map((x, i) => i === idx ? { ...x, votes: e.target.value } : x) } : prev)}
+                              sx={{ flex: 1 }} disabled={saving} />
+                            <IconButton size="small" onClick={() => setForm(prev => prev ? { ...prev, ratings: prev.ratings.filter((_, i) => i !== idx) } : prev)} disabled={saving}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                        <Button size="small" startIcon={<AddIcon />} disabled={saving}
+                          onClick={() => setForm(prev => prev ? { ...prev, ratings: [...prev.ratings, { name: 'default', value: '', votes: '0', max: '10' }] } : prev)}>
+                          {t('videoDetail.addRating')}
+                        </Button>
+                      </Stack>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'uniqueIds') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t('videoDetail.fields.uniqueIds')}</Typography>
+                      <Stack spacing={1}>
+                        {form.uniqueIds.map((uid, idx) => (
+                          <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <TextField size="small" label={t('videoDetail.idType')} value={uid.type}
+                              onChange={e => setForm(prev => prev ? { ...prev, uniqueIds: prev.uniqueIds.map((x, i) => i === idx ? { ...x, type: e.target.value } : x) } : prev)}
+                              sx={{ flex: 1 }} disabled={saving} />
+                            <TextField size="small" label={t('videoDetail.idValue')} value={uid.value}
+                              onChange={e => setForm(prev => prev ? { ...prev, uniqueIds: prev.uniqueIds.map((x, i) => i === idx ? { ...x, value: e.target.value } : x) } : prev)}
+                              sx={{ flex: 2 }} disabled={saving} />
+                            <IconButton size="small" onClick={() => setForm(prev => prev ? { ...prev, uniqueIds: prev.uniqueIds.filter((_, i) => i !== idx) } : prev)} disabled={saving}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                        <Button size="small" startIcon={<AddIcon />} disabled={saving}
+                          onClick={() => setForm(prev => prev ? { ...prev, uniqueIds: [...prev.uniqueIds, { type: 'imdb', value: '' }] } : prev)}>
+                          {t('videoDetail.addUniqueId')}
+                        </Button>
+                      </Stack>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'credits') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.credits')} fullWidth size="small" {...field('credits')}
+                        helperText={t('videoDetail.commaSeparatedHint')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'countries') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.countries')} fullWidth size="small" {...field('countries')}
+                        helperText={t('videoDetail.commaSeparatedHint')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'setName') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.setName')} fullWidth size="small" {...field('setName')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'dateAdded') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.dateAdded')} fullWidth size="small" {...field('dateAdded')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'outline') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.outline')} fullWidth multiline rows={2} {...field('outline')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'tagline') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.tagline')} fullWidth size="small" {...field('tagline')} />
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'plot') && (
+                    <Grid size={12}>
+                      <TextField label={t('videoDetail.fields.plot')} fullWidth multiline rows={4} {...field('plot')} />
+                    </Grid>
+                  )}
                 </Grid>
               ) : (
                 <Grid container spacing={1.5}>
-                  <Grid size={{ xs: 12, sm: 8 }}>
-                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.title')}</Typography>
-                    <Typography>{video.title ?? '—'}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.year')}</Typography>
-                    <Typography>{video.year ?? '—'}</Typography>
-                  </Grid>
-                  <Grid size={12}>
-                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.originalTitle')}</Typography>
-                    <Typography>{video.originalTitle ?? '—'}</Typography>
-                  </Grid>
-                  <Grid size={12}>
-                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.studio')}</Typography>
-                    <Typography>{video.studioName ?? '—'}</Typography>
-                  </Grid>
-                  <Grid size={12}>
-                    <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.plot')}</Typography>
-                    <Typography sx={{ whiteSpace: 'pre-wrap' }}>{video.plot ?? '—'}</Typography>
-                  </Grid>
+                  {isFieldVisible(fieldVis, 'title') && (
+                    <Grid size={{ xs: 12, sm: 8 }}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.title')}</Typography>
+                      <Typography>{video.title ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'year') && (
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.year')}</Typography>
+                      <Typography>{video.year ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'originalTitle') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.originalTitle')}</Typography>
+                      <Typography>{video.originalTitle ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'sortTitle') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.sortTitle')}</Typography>
+                      <Typography>{video.sortTitle ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'studioName') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.studio')}</Typography>
+                      <Typography>{video.studioName ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'directors') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.directors')}</Typography>
+                      {video.directors && video.directors.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {video.directors.map((d, i) => <Chip key={i} label={d} size="small" />)}
+                        </Box>
+                      ) : <Typography>—</Typography>}
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'genres') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.genres')}</Typography>
+                      {video.genres && video.genres.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {video.genres.map((g, i) => <Chip key={i} label={g} size="small" />)}
+                        </Box>
+                      ) : <Typography>—</Typography>}
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'tags') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.tags')}</Typography>
+                      {video.tags && video.tags.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {video.tags.map((tag, i) => <Chip key={i} label={tag} size="small" variant="outlined" />)}
+                        </Box>
+                      ) : <Typography>—</Typography>}
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'runtime') && (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.runtime')}</Typography>
+                      <Typography>{video.runtime != null ? `${video.runtime} min` : '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'mpaa') && (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.mpaa')}</Typography>
+                      <Typography>{video.mpaa ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'premiered') && (
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.premiered')}</Typography>
+                      <Typography>{video.premiered ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'userRating') && (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.userRating')}</Typography>
+                      <Typography>{video.userRating ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'top250') && (
+                    <Grid size={{ xs: 6, sm: 4 }}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.top250')}</Typography>
+                      <Typography>{video.top250 ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'ratings') && video.ratings && video.ratings.length > 0 && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.ratings')}</Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                        {video.ratings.map((r, i) => (
+                          <Chip key={i} label={`${r.name}: ${r.value}/${r.max}`} size="small" variant="outlined" />
+                        ))}
+                      </Box>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'uniqueIds') && video.uniqueIds && Object.keys(video.uniqueIds).length > 0 && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.uniqueIds')}</Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                        {Object.entries(video.uniqueIds).map(([type, value]) => (
+                          <Chip key={type} label={`${type}: ${value}`} size="small" variant="outlined"
+                            onClick={type === 'imdb' ? () => window.open(`https://www.imdb.com/title/${value}`, '_blank') : undefined}
+                            clickable={type === 'imdb'} />
+                        ))}
+                      </Box>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'credits') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.credits')}</Typography>
+                      {video.credits && video.credits.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {video.credits.map((c, i) => <Chip key={i} label={c} size="small" />)}
+                        </Box>
+                      ) : <Typography>—</Typography>}
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'countries') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.countries')}</Typography>
+                      {video.countries && video.countries.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {video.countries.map((c, i) => <Chip key={i} label={c} size="small" />)}
+                        </Box>
+                      ) : <Typography>—</Typography>}
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'setName') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.setName')}</Typography>
+                      <Typography>{video.setName ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'dateAdded') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.dateAdded')}</Typography>
+                      <Typography>{video.dateAdded ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'outline') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.outline')}</Typography>
+                      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{video.outline ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'tagline') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.tagline')}</Typography>
+                      <Typography>{video.tagline ?? '—'}</Typography>
+                    </Grid>
+                  )}
+                  {isFieldVisible(fieldVis, 'plot') && (
+                    <Grid size={12}>
+                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.plot')}</Typography>
+                      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{video.plot ?? '—'}</Typography>
+                    </Grid>
+                  )}
                 </Grid>
               )}
             </Paper>

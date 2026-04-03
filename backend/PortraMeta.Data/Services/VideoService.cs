@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PortraMeta.Core.Interfaces;
@@ -65,7 +66,12 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             .Select(v => new VideoFileDto(
                 v.Id, v.LibraryId, v.FileName, v.FilePath, v.FileSizeBytes,
                 v.HasNfo, v.HasPoster, v.HasFanart, v.Title, v.OriginalTitle, v.Year, v.Plot,
-                v.Studio != null ? v.Studio.Name : null, v.ScannedAt, null, v.FileModifiedAt))
+                v.Studio != null ? v.Studio.Name : null, v.ScannedAt,
+                null, v.FileModifiedAt,
+                null, null, v.Runtime, v.Mpaa, v.Premiered,
+                null, v.UserRating, null, null, v.SortTitle,
+                null, null, null, null,
+                null, null, null))
             .ToListAsync(ct);
 
         logger.LogDebug("GetAll videos: page={Page}, pageSize={PageSize}, total={Total}", page, pageSize, total);
@@ -114,6 +120,29 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         v.Year = request.Year;
         v.Plot = request.Plot;
         v.NfoUpdatedAt = DateTime.UtcNow;
+
+        // Extended NFO fields
+        v.DirectorsJson = SerializeList(request.Directors);
+        v.GenresJson = SerializeList(request.Genres);
+        v.Runtime = request.Runtime;
+        v.Mpaa = request.Mpaa;
+        v.Premiered = request.Premiered;
+        v.RatingsJson = request.Ratings is { Count: > 0 }
+            ? JsonSerializer.Serialize(request.Ratings)
+            : null;
+        v.UserRating = request.UserRating;
+        v.UniqueIdsJson = request.UniqueIds is { Count: > 0 }
+            ? JsonSerializer.Serialize(request.UniqueIds)
+            : null;
+        v.TagsJson = SerializeList(request.Tags);
+        v.SortTitle = request.SortTitle;
+        v.Outline = request.Outline;
+        v.Tagline = request.Tagline;
+        v.CreditsJson = SerializeList(request.Credits);
+        v.CountriesJson = SerializeList(request.Countries);
+        v.SetName = request.SetName;
+        v.DateAdded = request.DateAdded;
+        v.Top250 = request.Top250;
 
         if (request.StudioName is not null)
         {
@@ -388,6 +417,21 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
                     v.Studio = newStudio;
                     v.StudioId = newStudio?.Id;
                 }
+                if (request.Directors is not null) v.DirectorsJson = SerializeList(request.Directors);
+                if (request.Genres is not null) v.GenresJson = SerializeList(request.Genres);
+                if (request.Runtime is not null) v.Runtime = request.Runtime;
+                if (request.Mpaa is not null) v.Mpaa = request.Mpaa;
+                if (request.Premiered is not null) v.Premiered = request.Premiered;
+                if (request.UserRating is not null) v.UserRating = request.UserRating;
+                if (request.Tags is not null) v.TagsJson = SerializeList(request.Tags);
+                if (request.SortTitle is not null) v.SortTitle = request.SortTitle;
+                if (request.Outline is not null) v.Outline = request.Outline;
+                if (request.Tagline is not null) v.Tagline = request.Tagline;
+                if (request.Credits is not null) v.CreditsJson = SerializeList(request.Credits);
+                if (request.Countries is not null) v.CountriesJson = SerializeList(request.Countries);
+                if (request.SetName is not null) v.SetName = request.SetName;
+                if (request.DateAdded is not null) v.DateAdded = request.DateAdded;
+                if (request.Top250 is not null) v.Top250 = request.Top250;
                 v.NfoUpdatedAt = DateTime.UtcNow;
 
                 await db.SaveChangesAsync(ct);
@@ -455,6 +499,23 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
                     v.Plot = null;
                     v.StudioId = null;
                     v.NfoUpdatedAt = null;
+                    v.DirectorsJson = null;
+                    v.GenresJson = null;
+                    v.Runtime = null;
+                    v.Mpaa = null;
+                    v.Premiered = null;
+                    v.RatingsJson = null;
+                    v.UserRating = null;
+                    v.UniqueIdsJson = null;
+                    v.TagsJson = null;
+                    v.SortTitle = null;
+                    v.Outline = null;
+                    v.Tagline = null;
+                    v.CreditsJson = null;
+                    v.CountriesJson = null;
+                    v.SetName = null;
+                    v.DateAdded = null;
+                    v.Top250 = null;
                 }
 
                 // Delete video file + remove DB record
@@ -508,6 +569,33 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         return new VideoFileDto(
             v.Id, v.LibraryId, v.FileName, v.FilePath, v.FileSizeBytes,
             v.HasNfo, v.HasPoster, v.HasFanart, v.Title, v.OriginalTitle, v.Year, v.Plot,
-            v.Studio?.Name, v.ScannedAt, actors, v.FileModifiedAt);
+            v.Studio?.Name, v.ScannedAt, actors, v.FileModifiedAt,
+            Directors: DeserializeList(v.DirectorsJson),
+            Genres: DeserializeList(v.GenresJson),
+            Runtime: v.Runtime,
+            Mpaa: v.Mpaa,
+            Premiered: v.Premiered,
+            Ratings: DeserializeJson<List<RatingDto>>(v.RatingsJson),
+            UserRating: v.UserRating,
+            UniqueIds: DeserializeJson<Dictionary<string, string>>(v.UniqueIdsJson),
+            Tags: DeserializeList(v.TagsJson),
+            SortTitle: v.SortTitle,
+            Outline: v.Outline,
+            Tagline: v.Tagline,
+            Credits: DeserializeList(v.CreditsJson),
+            Countries: DeserializeList(v.CountriesJson),
+            SetName: v.SetName,
+            DateAdded: v.DateAdded,
+            Top250: v.Top250
+        );
     }
+
+    private static string? SerializeList(IReadOnlyList<string>? list)
+        => list is { Count: > 0 } ? JsonSerializer.Serialize(list) : null;
+
+    private static List<string>? DeserializeList(string? json)
+        => string.IsNullOrEmpty(json) ? null : JsonSerializer.Deserialize<List<string>>(json);
+
+    private static T? DeserializeJson<T>(string? json) where T : class
+        => string.IsNullOrEmpty(json) ? null : JsonSerializer.Deserialize<T>(json);
 }

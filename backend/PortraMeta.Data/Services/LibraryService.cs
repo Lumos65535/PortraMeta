@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PortraMeta.Core.Interfaces;
@@ -194,6 +195,7 @@ public class LibraryService(
                             existing.Year = nfoData.Year;
                             existing.Plot = nfoData.Plot;
                             existing.NfoUpdatedAt = DateTime.UtcNow;
+                            MapExtendedNfoFields(nfoData, existing);
                             nfoParsed++;
 
                             if (nfoData.Studio is not null)
@@ -261,6 +263,7 @@ public class LibraryService(
                         videoFile.Year = nfoData.Year;
                         videoFile.Plot = nfoData.Plot;
                         videoFile.NfoUpdatedAt = DateTime.UtcNow;
+                        MapExtendedNfoFields(nfoData, videoFile);
                         nfoParsed++;
 
                         if (nfoData.Studio is not null)
@@ -315,5 +318,33 @@ public class LibraryService(
             logger.LogError(ex, "Scan failed: library {Id}", id);
             return Result<ScanResultDto>.Fail($"Scan failed: {ex.Message}");
         }
+    }
+
+    private static string? SerializeList(IReadOnlyList<string> list)
+        => list.Count > 0 ? JsonSerializer.Serialize(list) : null;
+
+    private static void MapExtendedNfoFields(NfoData nfo, VideoFile v)
+    {
+        v.DirectorsJson = SerializeList(nfo.Directors);
+        v.GenresJson = SerializeList(nfo.Genres);
+        v.Runtime = nfo.Runtime;
+        v.Mpaa = nfo.Mpaa;
+        v.Premiered = nfo.Premiered;
+        v.RatingsJson = nfo.Ratings.Count > 0
+            ? JsonSerializer.Serialize(nfo.Ratings.Select(r => new { r.Name, r.Value, r.Votes, r.Max }))
+            : null;
+        v.UserRating = nfo.UserRating;
+        v.UniqueIdsJson = nfo.UniqueIds.Count > 0
+            ? JsonSerializer.Serialize(nfo.UniqueIds.ToDictionary(u => u.Type, u => u.Value))
+            : null;
+        v.TagsJson = SerializeList(nfo.Tags);
+        v.SortTitle = nfo.SortTitle;
+        v.Outline = nfo.Outline;
+        v.Tagline = nfo.Tagline;
+        v.CreditsJson = SerializeList(nfo.Credits);
+        v.CountriesJson = SerializeList(nfo.Countries);
+        v.SetName = nfo.Set;
+        v.DateAdded = nfo.DateAdded;
+        v.Top250 = nfo.Top250;
     }
 }

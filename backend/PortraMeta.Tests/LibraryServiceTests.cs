@@ -173,7 +173,7 @@ public class LibraryServiceTests : IDisposable
             """);
 
         _nfoParser.ParseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new NfoData("Parsed Title", null, 2023, null, null, []));
+            .Returns(new NfoData("Parsed Title", null, 2023, null, null, [], [], [], null, null, null, [], null, [], [], null, null, null, [], [], null, null, null));
 
         var lib = new Library { Name = "Lib", Path = _tempDir };
         _db.Libraries.Add(lib);
@@ -230,7 +230,7 @@ public class LibraryServiceTests : IDisposable
 
         _nfoParser.ParseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new NfoData("Title", null, null, null, "Studio X",
-                [new NfoActor("Alice", "Lead", 0)]));
+                [new NfoActor("Alice", "Lead", 0)], [], [], null, null, null, [], null, [], [], null, null, null, [], [], null, null, null));
 
         var lib = new Library { Name = "Lib", Path = _tempDir };
         _db.Libraries.Add(lib);

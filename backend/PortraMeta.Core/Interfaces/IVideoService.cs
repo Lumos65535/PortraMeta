@@ -5,6 +5,8 @@ namespace PortraMeta.Core.Interfaces;
 
 public record ActorDto(int Id, string Name, string? Role, int Order);
 
+public record RatingDto(string Name, decimal Value, int Votes, int Max = 10);
+
 public record VideoFileDto(
     int Id,
     int LibraryId,
@@ -21,7 +23,27 @@ public record VideoFileDto(
     string? StudioName,
     DateTime ScannedAt,
     IReadOnlyList<ActorDto>? Actors = null,
-    DateTime? FileModifiedAt = null
+    DateTime? FileModifiedAt = null,
+    // Tier 1
+    IReadOnlyList<string>? Directors = null,
+    IReadOnlyList<string>? Genres = null,
+    int? Runtime = null,
+    string? Mpaa = null,
+    string? Premiered = null,
+    IReadOnlyList<RatingDto>? Ratings = null,
+    int? UserRating = null,
+    IDictionary<string, string>? UniqueIds = null,
+    IReadOnlyList<string>? Tags = null,
+    string? SortTitle = null,
+    // Tier 2
+    string? Outline = null,
+    string? Tagline = null,
+    IReadOnlyList<string>? Credits = null,
+    IReadOnlyList<string>? Countries = null,
+    // Tier 3
+    string? SetName = null,
+    string? DateAdded = null,
+    int? Top250 = null
 );
 
 public record VideoFileFilter(
@@ -36,13 +58,35 @@ public record VideoFileFilter(
 
 public record ActorRequest(string Name, string? Role, int Order);
 
+public record RatingRequest(string Name, decimal Value, int Votes, int Max = 10);
+
 public record UpdateVideoRequest(
     string? Title,
     string? OriginalTitle,
     int? Year,
     string? Plot,
     string? StudioName,
-    IReadOnlyList<ActorRequest>? Actors = null
+    IReadOnlyList<ActorRequest>? Actors = null,
+    // Tier 1
+    IReadOnlyList<string>? Directors = null,
+    IReadOnlyList<string>? Genres = null,
+    int? Runtime = null,
+    string? Mpaa = null,
+    string? Premiered = null,
+    IReadOnlyList<RatingRequest>? Ratings = null,
+    int? UserRating = null,
+    IDictionary<string, string>? UniqueIds = null,
+    IReadOnlyList<string>? Tags = null,
+    string? SortTitle = null,
+    // Tier 2
+    string? Outline = null,
+    string? Tagline = null,
+    IReadOnlyList<string>? Credits = null,
+    IReadOnlyList<string>? Countries = null,
+    // Tier 3
+    string? SetName = null,
+    string? DateAdded = null,
+    int? Top250 = null
 );
 
 public record ImportFromPathRequest(string Path);
@@ -53,7 +97,22 @@ public record BatchUpdateVideoRequest(
     string? OriginalTitle = null,
     int? Year = null,
     string? Plot = null,
-    string? StudioName = null
+    string? StudioName = null,
+    IReadOnlyList<string>? Directors = null,
+    IReadOnlyList<string>? Genres = null,
+    int? Runtime = null,
+    string? Mpaa = null,
+    string? Premiered = null,
+    int? UserRating = null,
+    IReadOnlyList<string>? Tags = null,
+    string? SortTitle = null,
+    string? Outline = null,
+    string? Tagline = null,
+    IReadOnlyList<string>? Credits = null,
+    IReadOnlyList<string>? Countries = null,
+    string? SetName = null,
+    string? DateAdded = null,
+    int? Top250 = null
 );
 
 public record BatchUpdateResult(int Updated, int[] Failed);

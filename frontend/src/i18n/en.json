@@ -102,6 +102,14 @@
       "pathPlaceholder": "Paste local file path, e.g. /path/to/image.jpg",
       "pathConfirm": "Confirm"
     },
+    "commaSeparatedHint": "Separate multiple values with commas",
+    "addRating": "Add Rating",
+    "ratingSource": "Source",
+    "ratingValue": "Score",
+    "ratingVotes": "Votes",
+    "addUniqueId": "Add ID",
+    "idType": "Type",
+    "idValue": "Value",
     "fields": {
       "path": "Path",
       "size": "Size",
@@ -113,7 +121,24 @@
       "year": "Year",
       "originalTitle": "Original Title",
       "studio": "Studio",
-      "plot": "Plot"
+      "plot": "Plot",
+      "directors": "Director",
+      "genres": "Genre",
+      "runtime": "Runtime",
+      "mpaa": "Content Rating",
+      "premiered": "Premiered",
+      "ratings": "Ratings",
+      "userRating": "User Rating",
+      "uniqueIds": "External IDs",
+      "tags": "Tags",
+      "sortTitle": "Sort Title",
+      "outline": "Outline",
+      "tagline": "Tagline",
+      "credits": "Writer",
+      "countries": "Country",
+      "setName": "Collection",
+      "dateAdded": "Date Added",
+      "top250": "Top 250"
     }
   },
   "libraries": {
@@ -169,6 +194,14 @@
       "subtitle": "Enable to allow deleting files from the video list",
       "enabled": "Enabled",
       "disabled": "Disabled"
+    },
+    "detailFields": {
+      "title": "Detail Page Fields",
+      "subtitle": "Choose which metadata fields to display on the video detail page",
+      "tier1": "Primary Fields",
+      "tier2": "Secondary Fields",
+      "tier3": "Rarely Used Fields",
+      "resetDefaults": "Reset to Defaults"
     }
   }
 }

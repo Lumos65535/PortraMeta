@@ -18,6 +18,8 @@ import {
 import { videosApi } from '../api/videos';
 import type { BatchUpdateRequest, DeleteMode, PagedResult, VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
+import { getFieldLabelKey, getFieldVisibility, isFieldVisible } from '../utils/fieldVisibility';
+import type { FieldVisibility } from '../utils/fieldVisibility';
 
 const PAGE_SIZE = 50;
 const STORAGE_KEY = 'portrameta_videos_grid_v1';
@@ -95,6 +97,44 @@ function readGridSettings(): {
 }
 
 // ── Batch Edit Dialog ─────────────────────────────────────────────────────────
+
+// Batch-editable field definitions: key, type, and layout hints.
+// 'ratings' and 'uniqueIds' are excluded from batch editing (per-video structured data).
+interface BatchField {
+  key: string;
+  type: 'text' | 'number' | 'multiline' | 'comma';
+  sm?: number;
+  rows?: number;
+}
+
+const BATCH_FIELDS: BatchField[] = [
+  { key: 'title', type: 'text', sm: 8 },
+  { key: 'year', type: 'number', sm: 4 },
+  { key: 'originalTitle', type: 'text' },
+  { key: 'sortTitle', type: 'text' },
+  { key: 'studioName', type: 'text' },
+  { key: 'directors', type: 'comma' },
+  { key: 'genres', type: 'comma' },
+  { key: 'tags', type: 'comma' },
+  { key: 'runtime', type: 'number', sm: 4 },
+  { key: 'mpaa', type: 'text', sm: 4 },
+  { key: 'premiered', type: 'text', sm: 4 },
+  { key: 'userRating', type: 'number', sm: 4 },
+  { key: 'top250', type: 'number', sm: 4 },
+  { key: 'credits', type: 'comma' },
+  { key: 'countries', type: 'comma' },
+  { key: 'setName', type: 'text' },
+  { key: 'dateAdded', type: 'text' },
+  { key: 'outline', type: 'multiline', rows: 2 },
+  { key: 'tagline', type: 'text' },
+  { key: 'plot', type: 'multiline', rows: 3 },
+];
+
+function splitComma(s: string): string[] | null {
+  const items = s.split(',').map(x => x.trim()).filter(Boolean);
+  return items.length > 0 ? items : null;
+}
+
 interface BatchEditDialogProps {
   open: boolean;
   count: number;
@@ -104,29 +144,47 @@ interface BatchEditDialogProps {
 
 function BatchEditDialog({ open, count, onClose, onSubmit }: BatchEditDialogProps) {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ title: '', originalTitle: '', year: '', plot: '', studioName: '' });
+  const [fieldVis, setFieldVis] = useState<FieldVisibility>({});
+  const emptyForm: Record<string, string> = {};
+  for (const f of BATCH_FIELDS) emptyForm[f.key] = '';
+  const [form, setForm] = useState<Record<string, string>>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ title: '', originalTitle: '', year: '', plot: '', studioName: '' });
+    if (open) {
+      setFieldVis(getFieldVisibility());
+      const reset: Record<string, string> = {};
+      for (const f of BATCH_FIELDS) reset[f.key] = '';
+      setForm(reset);
+    }
   }, [open]);
 
-  const hasAnyField = form.title || form.originalTitle || form.year || form.plot || form.studioName;
+  const visibleFields = BATCH_FIELDS.filter(f => isFieldVisible(fieldVis, f.key));
+  const hasAnyField = visibleFields.some(f => form[f.key]?.trim());
 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await onSubmit({
-        title: form.title || null,
-        originalTitle: form.originalTitle || null,
-        year: form.year ? parseInt(form.year, 10) : null,
-        plot: form.plot || null,
-        studioName: form.studioName || null,
-      });
+      const payload: Omit<BatchUpdateRequest, 'ids'> = {};
+      for (const f of visibleFields) {
+        const val = form[f.key]?.trim();
+        if (!val) continue;
+        if (f.type === 'number') {
+          (payload as Record<string, unknown>)[f.key] = parseInt(val, 10) || null;
+        } else if (f.type === 'comma') {
+          (payload as Record<string, unknown>)[f.key] = splitComma(val);
+        } else {
+          (payload as Record<string, unknown>)[f.key] = val || null;
+        }
+      }
+      await onSubmit(payload);
     } finally {
       setSubmitting(false);
     }
   };
+
+  const setField = (key: string, value: string) =>
+    setForm(p => ({ ...p, [key]: value }));
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -136,21 +194,23 @@ function BatchEditDialog({ open, count, onClose, onSubmit }: BatchEditDialogProp
           {t('videos.batchEdit.hint')}
         </Typography>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 8 }}>
-            <TextField label={t('videoDetail.fields.title')} fullWidth size="small" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} disabled={submitting} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField label={t('videoDetail.fields.year')} fullWidth size="small" type="number" value={form.year} onChange={e => setForm(p => ({ ...p, year: e.target.value }))} disabled={submitting} />
-          </Grid>
-          <Grid size={12}>
-            <TextField label={t('videoDetail.fields.originalTitle')} fullWidth size="small" value={form.originalTitle} onChange={e => setForm(p => ({ ...p, originalTitle: e.target.value }))} disabled={submitting} />
-          </Grid>
-          <Grid size={12}>
-            <TextField label={t('videoDetail.fields.studio')} fullWidth size="small" value={form.studioName} onChange={e => setForm(p => ({ ...p, studioName: e.target.value }))} disabled={submitting} />
-          </Grid>
-          <Grid size={12}>
-            <TextField label={t('videoDetail.fields.plot')} fullWidth size="small" multiline rows={3} value={form.plot} onChange={e => setForm(p => ({ ...p, plot: e.target.value }))} disabled={submitting} />
-          </Grid>
+          {visibleFields.map(f => (
+            <Grid key={f.key} size={{ xs: 12, sm: f.sm ?? 12 }}>
+              <TextField
+                label={t(getFieldLabelKey(f.key))}
+                fullWidth
+                size="small"
+                type={f.type === 'number' ? 'number' : undefined}
+                multiline={f.type === 'multiline'}
+                rows={f.rows}
+                value={form[f.key] ?? ''}
+                onChange={e => setField(f.key, e.target.value)}
+                disabled={submitting}
+                helperText={f.type === 'comma' ? t('videoDetail.commaSeparatedHint') : undefined}
+                placeholder={f.key === 'premiered' ? 'YYYY-MM-DD' : undefined}
+              />
+            </Grid>
+          ))}
           <Grid size={12}>
             <Typography variant="caption" color="warning.main">
               {t('videos.batchEdit.warning')}

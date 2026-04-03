@@ -211,4 +211,153 @@ public class NfoParserTests : IDisposable
         Assert.Equal(0, result.Actors[0].Order);
         Assert.Equal(1, result.Actors[1].Order);
     }
+
+    [Fact]
+    public async Task ParseAsync_ExtendedFields_AllParsed()
+    {
+        var path = WriteNfo("""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <movie>
+              <title>Extended Movie</title>
+              <sorttitle>Extended, The</sorttitle>
+              <director>Director One</director>
+              <director>Director Two</director>
+              <genre>Action</genre>
+              <genre>Drama</genre>
+              <runtime>142</runtime>
+              <mpaa>PG-13</mpaa>
+              <premiered>2023-07-21</premiered>
+              <userrating>8</userrating>
+              <tag>favorite</tag>
+              <tag>classic</tag>
+              <outline>A short outline</outline>
+              <tagline>Best movie ever</tagline>
+              <credits>Writer One</credits>
+              <credits>Writer Two</credits>
+              <country>USA</country>
+              <country>UK</country>
+              <set><name>Marvel Collection</name></set>
+              <dateadded>2024-01-15 10:30:45</dateadded>
+              <top250>42</top250>
+              <ratings>
+                <rating name="imdb" max="10">
+                  <value>8.5</value>
+                  <votes>123456</votes>
+                </rating>
+                <rating name="tmdb" max="10">
+                  <value>7.9</value>
+                  <votes>5678</votes>
+                </rating>
+              </ratings>
+              <uniqueid type="imdb">tt1234567</uniqueid>
+              <uniqueid type="tmdb">12345</uniqueid>
+            </movie>
+            """);
+
+        var result = await _parser.ParseAsync(path);
+
+        Assert.NotNull(result);
+        Assert.Equal("Extended Movie", result.Title);
+        Assert.Equal("Extended, The", result.SortTitle);
+        Assert.Equal(["Director One", "Director Two"], result.Directors);
+        Assert.Equal(["Action", "Drama"], result.Genres);
+        Assert.Equal(142, result.Runtime);
+        Assert.Equal("PG-13", result.Mpaa);
+        Assert.Equal("2023-07-21", result.Premiered);
+        Assert.Equal(8, result.UserRating);
+        Assert.Equal(["favorite", "classic"], result.Tags);
+        Assert.Equal("A short outline", result.Outline);
+        Assert.Equal("Best movie ever", result.Tagline);
+        Assert.Equal(["Writer One", "Writer Two"], result.Credits);
+        Assert.Equal(["USA", "UK"], result.Countries);
+        Assert.Equal("Marvel Collection", result.Set);
+        Assert.Equal("2024-01-15 10:30:45", result.DateAdded);
+        Assert.Equal(42, result.Top250);
+
+        // Ratings
+        Assert.Equal(2, result.Ratings.Count);
+        Assert.Equal("imdb", result.Ratings[0].Name);
+        Assert.Equal(8.5m, result.Ratings[0].Value);
+        Assert.Equal(123456, result.Ratings[0].Votes);
+        Assert.Equal(10, result.Ratings[0].Max);
+        Assert.Equal("tmdb", result.Ratings[1].Name);
+        Assert.Equal(7.9m, result.Ratings[1].Value);
+
+        // UniqueIds
+        Assert.Equal(2, result.UniqueIds.Count);
+        Assert.Equal("imdb", result.UniqueIds[0].Type);
+        Assert.Equal("tt1234567", result.UniqueIds[0].Value);
+        Assert.Equal("tmdb", result.UniqueIds[1].Type);
+        Assert.Equal("12345", result.UniqueIds[1].Value);
+    }
+
+    [Fact]
+    public async Task ParseAsync_LegacyRatingAndImdbId_Parsed()
+    {
+        var path = WriteNfo("""
+            <movie>
+              <title>Legacy</title>
+              <rating>7.5</rating>
+              <imdbid>tt9999999</imdbid>
+            </movie>
+            """);
+
+        var result = await _parser.ParseAsync(path);
+
+        Assert.NotNull(result);
+        Assert.Single(result.Ratings);
+        Assert.Equal("default", result.Ratings[0].Name);
+        Assert.Equal(7.5m, result.Ratings[0].Value);
+
+        Assert.Single(result.UniqueIds);
+        Assert.Equal("imdb", result.UniqueIds[0].Type);
+        Assert.Equal("tt9999999", result.UniqueIds[0].Value);
+    }
+
+    [Fact]
+    public async Task ParseAsync_SetPlainText_Parsed()
+    {
+        var path = WriteNfo("""
+            <movie>
+              <title>T</title>
+              <set>Simple Collection</set>
+            </movie>
+            """);
+
+        var result = await _parser.ParseAsync(path);
+
+        Assert.NotNull(result);
+        Assert.Equal("Simple Collection", result.Set);
+    }
+
+    [Fact]
+    public async Task ParseAsync_EmptyExtendedFields_DefaultsToEmpty()
+    {
+        var path = WriteNfo("""
+            <movie>
+              <title>Minimal</title>
+            </movie>
+            """);
+
+        var result = await _parser.ParseAsync(path);
+
+        Assert.NotNull(result);
+        Assert.Empty(result.Directors);
+        Assert.Empty(result.Genres);
+        Assert.Null(result.Runtime);
+        Assert.Null(result.Mpaa);
+        Assert.Null(result.Premiered);
+        Assert.Empty(result.Ratings);
+        Assert.Null(result.UserRating);
+        Assert.Empty(result.UniqueIds);
+        Assert.Empty(result.Tags);
+        Assert.Null(result.SortTitle);
+        Assert.Null(result.Outline);
+        Assert.Null(result.Tagline);
+        Assert.Empty(result.Credits);
+        Assert.Empty(result.Countries);
+        Assert.Null(result.Set);
+        Assert.Null(result.DateAdded);
+        Assert.Null(result.Top250);
+    }
 }

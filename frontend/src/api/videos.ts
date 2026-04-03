@@ -8,6 +8,13 @@ export interface Actor {
   order: number;
 }
 
+export interface Rating {
+  name: string;
+  value: number;
+  votes: number;
+  max: number;
+}
+
 export interface VideoFile {
   id: number;
   libraryId: number;
@@ -25,6 +32,26 @@ export interface VideoFile {
   scannedAt: string;
   actors: Actor[] | null;
   fileModifiedAt: string | null;
+  // Tier 1
+  directors: string[] | null;
+  genres: string[] | null;
+  runtime: number | null;
+  mpaa: string | null;
+  premiered: string | null;
+  ratings: Rating[] | null;
+  userRating: number | null;
+  uniqueIds: Record<string, string> | null;
+  tags: string[] | null;
+  sortTitle: string | null;
+  // Tier 2
+  outline: string | null;
+  tagline: string | null;
+  credits: string[] | null;
+  countries: string[] | null;
+  // Tier 3
+  setName: string | null;
+  dateAdded: string | null;
+  top250: number | null;
 }
 
 export interface PagedResult<T> {
@@ -52,6 +79,13 @@ export interface ActorRequest {
   order: number;
 }
 
+export interface RatingRequest {
+  name: string;
+  value: number;
+  votes: number;
+  max: number;
+}
+
 export interface UpdateVideoRequest {
   title: string | null;
   originalTitle: string | null;
@@ -59,6 +93,26 @@ export interface UpdateVideoRequest {
   plot: string | null;
   studioName: string | null;
   actors?: ActorRequest[];
+  // Tier 1
+  directors?: string[] | null;
+  genres?: string[] | null;
+  runtime?: number | null;
+  mpaa?: string | null;
+  premiered?: string | null;
+  ratings?: RatingRequest[] | null;
+  userRating?: number | null;
+  uniqueIds?: Record<string, string> | null;
+  tags?: string[] | null;
+  sortTitle?: string | null;
+  // Tier 2
+  outline?: string | null;
+  tagline?: string | null;
+  credits?: string[] | null;
+  countries?: string[] | null;
+  // Tier 3
+  setName?: string | null;
+  dateAdded?: string | null;
+  top250?: number | null;
 }
 
 export interface BatchUpdateRequest {
@@ -68,6 +122,21 @@ export interface BatchUpdateRequest {
   year?: number | null;
   plot?: string | null;
   studioName?: string | null;
+  directors?: string[] | null;
+  genres?: string[] | null;
+  runtime?: number | null;
+  mpaa?: string | null;
+  premiered?: string | null;
+  userRating?: number | null;
+  tags?: string[] | null;
+  sortTitle?: string | null;
+  outline?: string | null;
+  tagline?: string | null;
+  credits?: string[] | null;
+  countries?: string[] | null;
+  setName?: string | null;
+  dateAdded?: string | null;
+  top250?: number | null;
 }
 
 export interface BatchUpdateResult {

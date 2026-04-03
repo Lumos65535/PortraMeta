@@ -153,4 +153,154 @@ public class NfoServiceTests : IDisposable
         Assert.StartsWith("<?xml", content);
         Assert.Contains("utf-8", content, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task WriteAsync_ExtendedFields_WrittenCorrectly()
+    {
+        var path = GetNfoPath();
+        var dto = MakeDto("Extended") with
+        {
+            Directors = ["Dir One", "Dir Two"],
+            Genres = ["Action", "Drama"],
+            Runtime = 142,
+            Mpaa = "PG-13",
+            Premiered = "2023-07-21",
+            Ratings = [new RatingDto("imdb", 8.5m, 123456, 10)],
+            UserRating = 8,
+            UniqueIds = new Dictionary<string, string> { ["imdb"] = "tt1234567", ["tmdb"] = "12345" },
+            Tags = ["favorite", "classic"],
+            SortTitle = "Extended, The",
+            Outline = "Short outline",
+            Tagline = "Best movie ever",
+            Credits = ["Writer One"],
+            Countries = ["USA", "UK"],
+            SetName = "Marvel Collection",
+            DateAdded = "2024-01-15",
+            Top250 = 42,
+        };
+
+        await _service.WriteAsync(path, dto);
+
+        var doc = XDocument.Load(path);
+        var root = doc.Root!;
+
+        Assert.Equal(["Dir One", "Dir Two"], root.Elements("director").Select(e => e.Value).ToList());
+        Assert.Equal(["Action", "Drama"], root.Elements("genre").Select(e => e.Value).ToList());
+        Assert.Equal("142", root.Element("runtime")!.Value);
+        Assert.Equal("PG-13", root.Element("mpaa")!.Value);
+        Assert.Equal("2023-07-21", root.Element("premiered")!.Value);
+        Assert.Equal("8", root.Element("userrating")!.Value);
+        Assert.Equal("Extended, The", root.Element("sorttitle")!.Value);
+        Assert.Equal("Short outline", root.Element("outline")!.Value);
+        Assert.Equal("Best movie ever", root.Element("tagline")!.Value);
+        Assert.Equal(["Writer One"], root.Elements("credits").Select(e => e.Value).ToList());
+        Assert.Equal(["USA", "UK"], root.Elements("country").Select(e => e.Value).ToList());
+        Assert.Equal("42", root.Element("top250")!.Value);
+        Assert.Equal("2024-01-15", root.Element("dateadded")!.Value);
+
+        // Ratings
+        var ratingsEl = root.Element("ratings")!;
+        var rating = ratingsEl.Element("rating")!;
+        Assert.Equal("imdb", rating.Attribute("name")!.Value);
+        Assert.Equal("8.5", rating.Element("value")!.Value);
+        Assert.Equal("123456", rating.Element("votes")!.Value);
+
+        // UniqueIds
+        var uids = root.Elements("uniqueid").ToList();
+        Assert.Equal(2, uids.Count);
+
+        // Set
+        Assert.Equal("Marvel Collection", root.Element("set")!.Element("name")!.Value);
+
+        // Tags
+        Assert.Equal(["favorite", "classic"], root.Elements("tag").Select(e => e.Value).ToList());
+    }
+
+    [Fact]
+    public async Task WriteAsync_ExtendedRoundtrip_ParseBackIdentical()
+    {
+        var path = GetNfoPath();
+        var dto = MakeDto("Roundtrip") with
+        {
+            Directors = ["Christopher Nolan"],
+            Genres = ["Sci-Fi", "Thriller"],
+            Runtime = 148,
+            Mpaa = "PG-13",
+            Premiered = "2010-07-16",
+            Ratings = [new RatingDto("imdb", 8.8m, 2000000, 10)],
+            UserRating = 9,
+            UniqueIds = new Dictionary<string, string> { ["imdb"] = "tt1375666" },
+            Tags = ["dream"],
+            SortTitle = "Inception",
+            Outline = "A thief enters dreams",
+            Tagline = "Your mind is the scene of the crime",
+            Credits = ["Christopher Nolan"],
+            Countries = ["USA"],
+            SetName = "Nolan Films",
+            DateAdded = "2024-06-01",
+            Top250 = 13,
+        };
+
+        await _service.WriteAsync(path, dto);
+
+        var parser = new NfoParser(NullLogger<NfoParser>.Instance);
+        var parsed = await parser.ParseAsync(path);
+
+        Assert.NotNull(parsed);
+        Assert.Equal("Roundtrip", parsed.Title);
+        Assert.Equal(["Christopher Nolan"], parsed.Directors);
+        Assert.Equal(["Sci-Fi", "Thriller"], parsed.Genres);
+        Assert.Equal(148, parsed.Runtime);
+        Assert.Equal("PG-13", parsed.Mpaa);
+        Assert.Equal("2010-07-16", parsed.Premiered);
+        Assert.Equal(9, parsed.UserRating);
+        Assert.Equal("Inception", parsed.SortTitle);
+        Assert.Equal("A thief enters dreams", parsed.Outline);
+        Assert.Equal("Your mind is the scene of the crime", parsed.Tagline);
+        Assert.Equal(["Christopher Nolan"], parsed.Credits);
+        Assert.Equal(["USA"], parsed.Countries);
+        Assert.Equal("Nolan Films", parsed.Set);
+        Assert.Equal("2024-06-01", parsed.DateAdded);
+        Assert.Equal(13, parsed.Top250);
+        Assert.Equal(["dream"], parsed.Tags);
+
+        Assert.Single(parsed.Ratings);
+        Assert.Equal("imdb", parsed.Ratings[0].Name);
+        Assert.Equal(8.8m, parsed.Ratings[0].Value);
+
+        Assert.Single(parsed.UniqueIds);
+        Assert.Equal("imdb", parsed.UniqueIds[0].Type);
+        Assert.Equal("tt1375666", parsed.UniqueIds[0].Value);
+    }
+
+    [Fact]
+    public async Task WriteAsync_PreservesUnknownElements_RoundTrip()
+    {
+        var path = GetNfoPath();
+        // Write an initial NFO with a custom unknown element
+        var initialXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <movie>
+              <title>Original</title>
+              <customelement>Custom Value</customelement>
+              <anothertag attr="123">Data</anothertag>
+            </movie>
+            """;
+        await File.WriteAllTextAsync(path, initialXml);
+
+        // Now write over it via the service
+        var dto = MakeDto("Updated Title");
+        await _service.WriteAsync(path, dto);
+
+        var doc = XDocument.Load(path);
+        var root = doc.Root!;
+
+        // Known field was updated
+        Assert.Equal("Updated Title", root.Element("title")!.Value);
+
+        // Unknown elements were preserved
+        Assert.Equal("Custom Value", root.Element("customelement")!.Value);
+        Assert.Equal("Data", root.Element("anothertag")!.Value);
+        Assert.Equal("123", root.Element("anothertag")!.Attribute("attr")!.Value);
+    }
 }
