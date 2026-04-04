@@ -802,7 +802,12 @@ export default function VideoDetailPage() {
                   )}
                   {isFieldVisible(fieldVis, 'year') && (
                     <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField label={t('videoDetail.fields.year')} fullWidth size="small" type="number" {...field('year')} />
+                      <TextField label={t('videoDetail.fields.year')} fullWidth size="small" {...field('year')}
+                        inputProps={{ maxLength: 4, inputMode: 'numeric', pattern: '[0-9]*' }}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setForm(prev => prev ? { ...prev, year: v } : prev);
+                        }} />
                     </Grid>
                   )}
                   {isFieldVisible(fieldVis, 'originalTitle') && (
@@ -850,8 +855,8 @@ export default function VideoDetailPage() {
                   )}
                   {isFieldVisible(fieldVis, 'premiered') && (
                     <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField label={t('videoDetail.fields.premiered')} fullWidth size="small" {...field('premiered')}
-                        placeholder="YYYY-MM-DD" />
+                      <TextField label={t('videoDetail.fields.premiered')} fullWidth size="small" type="date" {...field('premiered')}
+                        slotProps={{ inputLabel: { shrink: true } }} />
                     </Grid>
                   )}
                   {isFieldVisible(fieldVis, 'userRating') && (
