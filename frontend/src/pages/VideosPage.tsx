@@ -35,7 +35,22 @@ const DEFAULT_VISIBILITY: GridColumnVisibilityModel = {
   filePath: false,
   fileSizeBytes: false,
   originalTitle: false,
+  sortTitle: false,
   plot: false,
+  outline: false,
+  tagline: false,
+  directors: false,
+  genres: false,
+  tags: false,
+  runtime: false,
+  mpaa: false,
+  premiered: false,
+  userRating: false,
+  top250: false,
+  credits: false,
+  countries: false,
+  setName: false,
+  dateAdded: false,
   scannedAt: false,
   fileModifiedAt: false,
 };
@@ -51,7 +66,22 @@ const COLUMN_DEFAULT_WIDTHS: Record<string, number> = {
   filePath: 460,
   fileSizeBytes: 130,
   originalTitle: 260,
+  sortTitle: 260,
   plot: 320,
+  outline: 320,
+  tagline: 260,
+  directors: 200,
+  genres: 200,
+  tags: 200,
+  runtime: 100,
+  mpaa: 100,
+  premiered: 140,
+  userRating: 120,
+  top250: 100,
+  credits: 200,
+  countries: 180,
+  setName: 200,
+  dateAdded: 180,
   scannedAt: 200,
   fileModifiedAt: 200,
 };
@@ -535,27 +565,114 @@ export default function VideosPage() {
       width: columnWidthModel.fileModifiedAt ?? COLUMN_DEFAULT_WIDTHS.fileModifiedAt,
       valueGetter: (_value, row) => row.fileModifiedAt ? new Date(row.fileModifiedAt).toLocaleString() : '—',
     },
-  ];
-
-  const columns: GridColDef<VideoFile>[] = [
-    ...dataColumns,
     {
-      field: '__columnMenu__',
-      headerName: '',
-      width: 48,
-      minWidth: 48,
-      maxWidth: 48,
-      sortable: false,
-      resizable: false,
-      disableColumnMenu: true,
-      renderHeader: () => (
-        <IconButton size="small" onClick={e => setFieldMenuAnchor(e.currentTarget)}>
-          <MoreVertIcon fontSize="small" />
-        </IconButton>
-      ),
-      renderCell: () => null,
+      field: 'sortTitle',
+      headerName: t('videos.columns.sortTitle'),
+      minWidth: 140,
+      width: columnWidthModel.sortTitle ?? COLUMN_DEFAULT_WIDTHS.sortTitle,
+      valueGetter: (_value, row) => row.sortTitle ?? '—',
+    },
+    {
+      field: 'outline',
+      headerName: t('videos.columns.outline'),
+      minWidth: 160,
+      width: columnWidthModel.outline ?? COLUMN_DEFAULT_WIDTHS.outline,
+      valueGetter: (_value, row) => row.outline ?? '—',
+    },
+    {
+      field: 'tagline',
+      headerName: t('videos.columns.tagline'),
+      minWidth: 140,
+      width: columnWidthModel.tagline ?? COLUMN_DEFAULT_WIDTHS.tagline,
+      valueGetter: (_value, row) => row.tagline ?? '—',
+    },
+    {
+      field: 'directors',
+      headerName: t('videos.columns.directors'),
+      minWidth: 120,
+      width: columnWidthModel.directors ?? COLUMN_DEFAULT_WIDTHS.directors,
+      valueGetter: (_value, row) => row.directors?.join(', ') ?? '—',
+    },
+    {
+      field: 'genres',
+      headerName: t('videos.columns.genres'),
+      minWidth: 120,
+      width: columnWidthModel.genres ?? COLUMN_DEFAULT_WIDTHS.genres,
+      valueGetter: (_value, row) => row.genres?.join(', ') ?? '—',
+    },
+    {
+      field: 'tags',
+      headerName: t('videos.columns.tags'),
+      minWidth: 120,
+      width: columnWidthModel.tags ?? COLUMN_DEFAULT_WIDTHS.tags,
+      valueGetter: (_value, row) => row.tags?.join(', ') ?? '—',
+    },
+    {
+      field: 'runtime',
+      headerName: t('videos.columns.runtime'),
+      minWidth: 80,
+      width: columnWidthModel.runtime ?? COLUMN_DEFAULT_WIDTHS.runtime,
+      valueGetter: (_value, row) => row.runtime != null ? `${row.runtime} min` : '—',
+    },
+    {
+      field: 'mpaa',
+      headerName: t('videos.columns.mpaa'),
+      minWidth: 80,
+      width: columnWidthModel.mpaa ?? COLUMN_DEFAULT_WIDTHS.mpaa,
+      valueGetter: (_value, row) => row.mpaa ?? '—',
+    },
+    {
+      field: 'premiered',
+      headerName: t('videos.columns.premiered'),
+      minWidth: 120,
+      width: columnWidthModel.premiered ?? COLUMN_DEFAULT_WIDTHS.premiered,
+      valueGetter: (_value, row) => row.premiered ?? '—',
+    },
+    {
+      field: 'userRating',
+      headerName: t('videos.columns.userRating'),
+      minWidth: 100,
+      width: columnWidthModel.userRating ?? COLUMN_DEFAULT_WIDTHS.userRating,
+      valueGetter: (_value, row) => row.userRating ?? '—',
+    },
+    {
+      field: 'top250',
+      headerName: t('videos.columns.top250'),
+      minWidth: 80,
+      width: columnWidthModel.top250 ?? COLUMN_DEFAULT_WIDTHS.top250,
+      valueGetter: (_value, row) => row.top250 ?? '—',
+    },
+    {
+      field: 'credits',
+      headerName: t('videos.columns.credits'),
+      minWidth: 120,
+      width: columnWidthModel.credits ?? COLUMN_DEFAULT_WIDTHS.credits,
+      valueGetter: (_value, row) => row.credits?.join(', ') ?? '—',
+    },
+    {
+      field: 'countries',
+      headerName: t('videos.columns.countries'),
+      minWidth: 120,
+      width: columnWidthModel.countries ?? COLUMN_DEFAULT_WIDTHS.countries,
+      valueGetter: (_value, row) => row.countries?.join(', ') ?? '—',
+    },
+    {
+      field: 'setName',
+      headerName: t('videos.columns.setName'),
+      minWidth: 120,
+      width: columnWidthModel.setName ?? COLUMN_DEFAULT_WIDTHS.setName,
+      valueGetter: (_value, row) => row.setName ?? '—',
+    },
+    {
+      field: 'dateAdded',
+      headerName: t('videos.columns.dateAdded'),
+      minWidth: 120,
+      width: columnWidthModel.dateAdded ?? COLUMN_DEFAULT_WIDTHS.dateAdded,
+      valueGetter: (_value, row) => row.dateAdded ?? '—',
     },
   ];
+
+  const columns: GridColDef<VideoFile>[] = dataColumns;
 
   return (
     <Box sx={{ width: '100%', minWidth: 0, overflowX: 'hidden' }}>
@@ -641,7 +758,21 @@ export default function VideosPage() {
         </Box>
       ) : (
         <>
-          <Box sx={{ height: 'calc(100vh - 180px)', minHeight: 400, width: '100%', minWidth: 0, overflowX: 'hidden' }}>
+          <Box sx={{ height: 'calc(100vh - 180px)', minHeight: 400, width: '100%', minWidth: 0, overflowX: 'hidden', position: 'relative' }}>
+            <IconButton
+              size="small"
+              onClick={e => setFieldMenuAnchor(e.currentTarget)}
+              sx={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                zIndex: 2,
+                backgroundColor: 'background.paper',
+                '&:hover': { backgroundColor: 'action.hover' },
+              }}
+            >
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
             <DataGrid
               rows={result?.items ?? []}
               columns={columns}

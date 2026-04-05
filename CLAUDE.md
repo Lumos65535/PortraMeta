@@ -235,10 +235,42 @@ Completed:
 13. ✅ Light/dark/system theme switching (ThemeModeContext + Settings page)
 14. ✅ CORS multi-origin + optional API Key authentication (Phase 1 multi-platform groundwork)
 15. ✅ Batch video editing (`PUT /api/videos/batch` + DataGrid checkbox selection + BatchEditDialog)
+16. ✅ Video list full NFO column support (all Kodi NFO fields available as selectable columns, excluding actors)
+17. ✅ Column menu button pinned to top-right corner of DataGrid (no longer scrolls with columns)
 
 Pending:
-16. Scraper interface stub `/api/scrapers` (not yet implemented)
-17. Tauri desktop client packaging (macOS / Windows)
+18. Video list column filtering (see Column Filtering Plan below)
+19. Scraper interface stub `/api/scrapers` (not yet implemented)
+20. Tauri desktop client packaging (macOS / Windows)
+
+## Column Filtering Plan (Pending)
+
+Add per-column filtering to the video list DataGrid to let users narrow down results by field values.
+
+### Boolean Columns (Custom Filter)
+
+The `hasNfo`, `hasPoster`, and `hasFanart` columns use Chip rendering (✓/✗) and require a custom filter:
+
+- Filter type: dropdown with three options — All / Yes (✓) / No (✗)
+- These columns use `renderCell` (not plain text), so the built-in DataGrid string/number filters are not applicable
+- Implementation: define a custom `filterOperators` array on each boolean column using `getGridBooleanOperators()` or a manual `GridFilterOperator` with a custom `InputComponent` (Select with All/Yes/No)
+- Backend support: the existing API already accepts `has_nfo` and `has_poster` query parameters; `has_fanart` should be added if missing
+
+### Text and Numeric Columns (Built-in Filter)
+
+All other columns (title, year, studioName, directors, genres, runtime, mpaa, etc.) can use the MUI DataGrid's built-in column filter functionality:
+
+- Enable by ensuring `disableColumnFilter` is **not** set on the DataGrid (it is not set currently, so built-in filtering is already available via column menu)
+- The DataGrid community edition provides client-side filtering out of the box — since the grid uses server-side pagination, client-side filters only apply to the current page
+- **Preferred approach**: for true server-side filtering, extend the backend `GET /api/videos` endpoint to accept generic filter parameters (e.g., `?title_contains=xxx&year_gte=2020`), and wire DataGrid's `onFilterModelChange` to call the API with the corresponding query params
+- Fallback: if server-side filtering is too complex initially, enable client-side filtering on the loaded page data as a first step
+
+### Implementation Notes
+
+- MUI DataGrid community edition supports `filterModel` and `onFilterModelChange` props
+- For server-side filtering, set `filterMode="server"` on the DataGrid and handle filter model changes to re-fetch data
+- Column definitions can specify `filterable: false` to disable filtering on specific columns (e.g., `filePath`)
+- The column menu button (pinned top-right) currently controls visibility; filtering is accessed via each column's header menu (three-dot icon per column header, built into DataGrid)
 
 ## Keyboard Shortcuts Plan (Pending)
 
