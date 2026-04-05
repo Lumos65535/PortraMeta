@@ -327,4 +327,65 @@ public class VideoServiceTests : IDisposable
         Assert.Equal(1, result.Data!.Deleted);
         Assert.Null(await _db.VideoFiles.FindAsync(vf.Id));
     }
+
+    // ── RevealInFileManagerAsync ──────────────────────────────────────
+
+    [Fact]
+    public async Task RevealInFileManagerAsync_NotFound_ReturnsFail()
+    {
+        var result = await _svc.RevealInFileManagerAsync(999);
+
+        Assert.False(result.Success);
+        Assert.Contains("not found", result.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RevealInFileManagerAsync_FileNotOnDisk_ReturnsFail()
+    {
+        var lib = SeedLibrary();
+        var vf = SeedVideo(lib, "nonexistent.mp4");
+
+        var result = await _svc.RevealInFileManagerAsync(vf.Id);
+
+        Assert.False(result.Success);
+        Assert.Contains("not found on disk", result.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RevealInFileManagerAsync_FileExists_ReturnsOk()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), "portrameta_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tmpDir);
+        var tmpFile = Path.Combine(tmpDir, "test.mp4");
+        File.WriteAllBytes(tmpFile, [0]);
+
+        try
+        {
+            var lib = new Library { Name = "TmpLib", Path = tmpDir };
+            _db.Libraries.Add(lib);
+            _db.SaveChanges();
+
+            var vf = new VideoFile
+            {
+                Library = lib,
+                FileName = "test.mp4",
+                FilePath = tmpFile,
+                FileSizeBytes = 1,
+                ScannedAt = DateTime.UtcNow,
+            };
+            _db.VideoFiles.Add(vf);
+            _db.SaveChanges();
+
+            var result = await _svc.RevealInFileManagerAsync(vf.Id);
+
+            // On CI/headless environments Process.Start may fail, but file lookup should succeed.
+            // We accept both Ok (has display) and Fail with "Cannot open" (no display).
+            Assert.True(result.Success || result.Error!.Contains("Cannot open"));
+        }
+        finally
+        {
+            File.Delete(tmpFile);
+            Directory.Delete(tmpDir);
+        }
+    }
 }

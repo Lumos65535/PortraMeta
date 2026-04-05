@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -539,6 +541,45 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         logger.LogInformation("Batch delete complete (mode={Mode}): {Deleted} deleted, {FailedCount} failed",
             request.Mode, deleted, failed.Count);
         return Result<BatchDeleteResult>.Ok(new BatchDeleteResult(deleted, [.. failed]));
+    }
+
+    public async Task<Result> RevealInFileManagerAsync(int id, CancellationToken ct = default)
+    {
+        var filePath = await db.VideoFiles
+            .Where(v => v.Id == id)
+            .Select(v => v.FilePath)
+            .FirstOrDefaultAsync(ct);
+
+        if (filePath is null)
+            return Result.Fail("Video not found");
+
+        if (!File.Exists(filePath))
+            return Result.Fail("File not found on disk");
+
+        try
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Process.Start("open", $"-R \"{filePath}\"");
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Process.Start("explorer.exe", $"/select,\"{filePath}\"");
+            }
+            else
+            {
+                var dir = Path.GetDirectoryName(filePath)!;
+                Process.Start("xdg-open", $"\"{dir}\"");
+            }
+
+            logger.LogInformation("Revealed file in file manager: {FilePath}", filePath);
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to reveal file in file manager: {FilePath}", filePath);
+            return Result.Fail("Cannot open file manager in this environment");
+        }
     }
 
     private static void DeleteFileIfExists(string path)

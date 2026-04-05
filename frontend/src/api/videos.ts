@@ -191,4 +191,6 @@ export const videosApi = {
     api.put<ApiResponse<BatchUpdateResult>>('/videos/batch', data).then(r => r.data),
   batchDelete: (data: BatchDeleteRequest) =>
     api.post<ApiResponse<BatchDeleteResult>>('/videos/batch/delete', data).then(r => r.data),
+  revealInFileManager: (id: number) =>
+    api.post<ApiResponse<void>>(`/videos/${id}/reveal`).then(r => r.data),
 };

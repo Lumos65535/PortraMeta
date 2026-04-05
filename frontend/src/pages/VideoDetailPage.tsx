@@ -14,6 +14,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import SearchIcon from '@mui/icons-material/Search';
 import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
@@ -850,6 +851,30 @@ export default function VideoDetailPage() {
                     }}
                   >
                     {t('search.googleImages')}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<FolderOpenIcon />}
+                    sx={{ ml: 1 }}
+                    onClick={async () => {
+                      try {
+                        const res = await videosApi.revealInFileManager(video.id);
+                        if (!res.success) {
+                          await navigator.clipboard.writeText(video.filePath);
+                          notify(t('videoDetail.revealFallbackCopied'), 'info');
+                        }
+                      } catch {
+                        try {
+                          await navigator.clipboard.writeText(video.filePath);
+                          notify(t('videoDetail.revealFallbackCopied'), 'info');
+                        } catch {
+                          notify(t('videoDetail.revealFailed'), 'error');
+                        }
+                      }
+                    }}
+                  >
+                    {t('videoDetail.revealInFileManager')}
                   </Button>
                 </Grid>
               </Grid>

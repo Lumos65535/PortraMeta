@@ -142,4 +142,5 @@ public interface IVideoService
     Task<Result<VideoFileDto>> ImportFanartFromPathAsync(int id, string path, CancellationToken ct = default);
     Task<Result<BatchUpdateResult>> BatchUpdateAsync(BatchUpdateVideoRequest request, CancellationToken ct = default);
     Task<Result<BatchDeleteResult>> BatchDeleteAsync(BatchDeleteRequest request, CancellationToken ct = default);
+    Task<Result> RevealInFileManagerAsync(int id, CancellationToken ct = default);
 }
