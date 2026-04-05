@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
@@ -473,14 +473,76 @@ export default function VideoDetailPage() {
   const notify = useNotify();
   const { t } = useTranslation();
 
-  const navIds: number[] = (location.state as { ids?: number[] } | null)?.ids ?? [];
+  const PAGE_SIZE = 50;
+  const navState = location.state as {
+    ids?: number[];
+    navPage?: number;
+    navSearch?: string;
+    navSortBy?: string;
+    navSortDesc?: boolean;
+    navTotal?: number;
+  } | null;
+  const navIds: number[] = navState?.ids ?? [];
+  const navPage = navState?.navPage ?? 1;
+  const navTotal = navState?.navTotal ?? 0;
   const currentIndex = navIds.indexOf(Number(id));
   const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
   const nextId = currentIndex < navIds.length - 1 ? navIds[currentIndex + 1] : null;
+  const hasPrevPage = navPage > 1 && currentIndex === 0;
+  const hasNextPage = currentIndex === navIds.length - 1 && navPage * PAGE_SIZE < navTotal;
+
+  const buildNavState = (ids: number[], page: number) => ({
+    ids,
+    navPage: page,
+    navSearch: navState?.navSearch,
+    navSortBy: navState?.navSortBy,
+    navSortDesc: navState?.navSortDesc,
+    navTotal,
+  });
 
   const navigateTo = (targetId: number) => {
-    navigate(`/videos/${targetId}`, { state: { ids: navIds } });
+    navigate(`/videos/${targetId}`, { state: buildNavState(navIds, navPage) });
   };
+
+  const [crossPageLoading, setCrossPageLoading] = useState(false);
+
+  const navigateCrossPage = useCallback(async (direction: 'prev' | 'next') => {
+    const targetPage = direction === 'next' ? navPage + 1 : navPage - 1;
+    if (targetPage < 1) return;
+    setCrossPageLoading(true);
+    try {
+      const res = await videosApi.getAll({
+        search: navState?.navSearch,
+        page: targetPage,
+        page_size: PAGE_SIZE,
+        sort_by: navState?.navSortBy,
+        sort_desc: navState?.navSortDesc,
+      });
+      if (res.success && res.data.items.length > 0) {
+        const newIds = res.data.items.map(r => r.id);
+        const targetId = direction === 'next' ? newIds[0] : newIds[newIds.length - 1];
+        navigate(`/videos/${targetId}`, {
+          state: buildNavState(newIds, targetPage),
+        });
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCrossPageLoading(false);
+    }
+  }, [navPage, navState, navTotal, navigate]);
+
+  const navigateBackToList = useCallback(() => {
+    if (navPage > 0) {
+      try {
+        const raw = localStorage.getItem('portrameta_videos_grid_v1');
+        const settings = raw ? JSON.parse(raw) : {};
+        settings.page = navPage;
+        localStorage.setItem('portrameta_videos_grid_v1', JSON.stringify(settings));
+      } catch { /* ignore */ }
+    }
+    navigate('/videos');
+  }, [navPage, navigate]);
 
   const [video, setVideo] = useState<VideoFile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -521,7 +583,7 @@ export default function VideoDetailPage() {
       const res = await videosApi.batchDelete({ ids: [video.id], mode });
       if (res.success) {
         notify(t('videoDetail.deleteSuccess'), 'success');
-        navigate('/videos');
+        navigateBackToList();
       } else {
         notify(res.error ?? t('videoDetail.deleteFailed'), 'error');
       }
@@ -674,23 +736,29 @@ export default function VideoDetailPage() {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/videos')}>
+        <Button startIcon={<ArrowBackIcon />} onClick={navigateBackToList}>
           {t('videoDetail.backToList')}
         </Button>
         {navIds.length > 0 && (
           <Stack direction="row" spacing={0.5}>
             <IconButton
               size="small"
-              disabled={prevId === null}
-              onClick={() => prevId !== null && navigateTo(prevId)}
+              disabled={crossPageLoading || (prevId === null && !hasPrevPage)}
+              onClick={() => {
+                if (prevId !== null) navigateTo(prevId);
+                else if (hasPrevPage) navigateCrossPage('prev');
+              }}
               title={t('videoDetail.prevFile')}
             >
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
             <IconButton
               size="small"
-              disabled={nextId === null}
-              onClick={() => nextId !== null && navigateTo(nextId)}
+              disabled={crossPageLoading || (nextId === null && !hasNextPage)}
+              onClick={() => {
+                if (nextId !== null) navigateTo(nextId);
+                else if (hasNextPage) navigateCrossPage('next');
+              }}
               title={t('videoDetail.nextFile')}
             >
               <ArrowForwardIosIcon fontSize="small" />

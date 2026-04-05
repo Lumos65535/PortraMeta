@@ -659,7 +659,14 @@ export default function VideosPage() {
                 }
               }}
               onRowClick={params => navigate(`/videos/${params.row.id}`, {
-            state: { ids: result?.items.map(r => r.id) ?? [] },
+            state: {
+              ids: result?.items.map(r => r.id) ?? [],
+              navPage: page,
+              navSearch: search || undefined,
+              navSortBy: sortModel[0]?.field,
+              navSortDesc: sortModel[0]?.sort === 'desc' ? true : undefined,
+              navTotal: result?.total ?? 0,
+            },
           })}
               getRowId={row => row.id}
               columnVisibilityModel={columnVisibilityModel}
