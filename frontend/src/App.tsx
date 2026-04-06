@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import {
-  AppBar, Box, CssBaseline, Drawer, List, ListItemButton,
+  AppBar, Box, CssBaseline, Drawer, List, ListItemButton, ListItemIcon,
   ListItemText, ThemeProvider, Toolbar, Typography, createTheme,
 } from '@mui/material';
+import { Film, Library, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LibrariesPage from './pages/LibrariesPage';
 import VideosPage from './pages/VideosPage';
@@ -20,9 +21,9 @@ function Layout() {
   const { t } = useTranslation();
 
   const NAV_ITEMS = [
-    { labelKey: 'nav.videos', path: '/videos' },
-    { labelKey: 'nav.libraries', path: '/libraries' },
-    { labelKey: 'nav.settings', path: '/settings' },
+    { labelKey: 'nav.videos', path: '/videos', icon: Film },
+    { labelKey: 'nav.libraries', path: '/libraries', icon: Library },
+    { labelKey: 'nav.settings', path: '/settings', icon: Settings },
   ] as const;
 
   return (
@@ -49,6 +50,9 @@ function Layout() {
               selected={location.pathname.startsWith(item.path)}
               onClick={() => navigate(item.path)}
             >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <item.icon size={20} />
+              </ListItemIcon>
               <ListItemText primary={t(item.labelKey)} />
             </ListItemButton>
           ))}

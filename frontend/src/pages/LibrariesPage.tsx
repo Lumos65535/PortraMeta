@@ -6,10 +6,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Typography,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SyncIcon from '@mui/icons-material/Sync';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import FolderOffIcon from '@mui/icons-material/FolderOff';
+import { Trash2, RefreshCw, MoreVertical, FolderMinus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { librariesApi } from '../api/libraries';
 import type { Library } from '../api/libraries';
@@ -284,7 +281,7 @@ export default function LibrariesPage() {
                     >
                       {scanningLib?.id === lib.id
                         ? <CircularProgress size={20} />
-                        : <SyncIcon />}
+                        : <RefreshCw size={18} />}
                     </IconButton>
                     <IconButton
                       onClick={e => openMenu(e, lib)}
@@ -292,7 +289,7 @@ export default function LibrariesPage() {
                       disabled={isScanning}
                       size="small"
                     >
-                      <MoreVertIcon />
+                      <MoreVertical size={18} />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -316,12 +313,12 @@ export default function LibrariesPage() {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <MenuItem onClick={() => { closeMenu(); setExcludeLib(menuLib); }}>
-          <ListItemIcon><FolderOffIcon fontSize="small" /></ListItemIcon>
+          <ListItemIcon><FolderMinus size={16} /></ListItemIcon>
           <ListItemText>{t('libraries.excludeFolders')}</ListItemText>
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => menuLib && handleDelete(menuLib)} sx={{ color: 'error.main' }}>
-          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemIcon sx={{ color: 'error.main' }}><Trash2 size={16} /></ListItemIcon>
           <ListItemText>{t('libraries.deleteLibrary')}</ListItemText>
         </MenuItem>
       </Menu>

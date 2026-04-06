@@ -4,9 +4,7 @@ import {
   Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, FormControlLabel, Grid, IconButton, Menu, Radio, RadioGroup, TextField, Typography,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { Trash2, Pencil, MoreVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   DataGrid,
@@ -254,7 +252,7 @@ function BatchEditDialog({ open, count, onClose, onSubmit }: BatchEditDialogProp
           variant="contained"
           onClick={handleSubmit}
           disabled={submitting || !hasAnyField}
-          startIcon={submitting ? <CircularProgress size={16} /> : <EditIcon />}
+          startIcon={submitting ? <CircularProgress size={16} /> : <Pencil size={18} />}
         >
           {t('videos.batchEdit.submit', { count })}
         </Button>
@@ -309,7 +307,7 @@ function DeleteConfirmDialog({ open, count, onClose, onConfirm }: DeleteConfirmD
           color="error"
           onClick={handleConfirm}
           disabled={submitting}
-          startIcon={submitting ? <CircularProgress size={16} /> : <DeleteIcon />}
+          startIcon={submitting ? <CircularProgress size={16} /> : <Trash2 size={18} />}
         >
           {t('videos.batchDelete.submit')}
         </Button>
@@ -704,7 +702,7 @@ export default function VideosPage() {
               <>
                 <Button
                   variant="contained"
-                  startIcon={<EditIcon />}
+                  startIcon={<Pencil size={18} />}
                   onClick={() => setBatchDialogOpen(true)}
                 >
                   {t('videos.batchEdit.button')}（{selectedIds.length}）
@@ -713,7 +711,7 @@ export default function VideosPage() {
                   <Button
                     variant="contained"
                     color="error"
-                    startIcon={<DeleteIcon />}
+                    startIcon={<Trash2 size={18} />}
                     onClick={() => setDeleteDialogOpen(true)}
                   >
                     {t('videos.batchDelete.button')}（{selectedIds.length}）
@@ -771,7 +769,7 @@ export default function VideosPage() {
                 '&:hover': { backgroundColor: 'action.hover' },
               }}
             >
-              <MoreVertIcon fontSize="small" />
+              <MoreVertical size={18} />
             </IconButton>
             <DataGrid
               rows={result?.items ?? []}

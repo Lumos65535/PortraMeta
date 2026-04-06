@@ -9,7 +9,7 @@ A local video metadata management tool that generates NFO files and portrait-ori
 ## Tech Stack
 
 - Backend: .NET 9 ASP.NET Core Web API
-- Frontend: React + TypeScript + Material UI (MUI) + react-router-dom
+- Frontend: React + TypeScript + Material UI (MUI) + react-router-dom + Lucide React (icons)
 - Database: SQLite (via EF Core)
 - Deployment: Docker + Docker Compose
 
@@ -84,6 +84,11 @@ docker compose down                        # Stop
 - Translation keys are grouped by page/module (`nav.*`, `common.*`, `videos.*`, `videoDetail.*`, `libraries.*`, `settings.*`)
 - Dynamic content (strings with variables) uses i18next interpolation syntax: `t('key', { name: value })`, with `{{name}}` in the translation file
 - Default language is Chinese; user language preference is persisted to `localStorage` (key: `portrameta_lang`)
+
+### Icon Standards
+- **All icons must use the `lucide-react` package** — do not use `@mui/icons-material` or other icon libraries
+- Import icons individually: `import { IconName } from 'lucide-react'`
+- Use the `size` prop to control icon dimensions (e.g., `<IconName size={18} />`)
 
 ### Logging Standards
 - Inject `ILogger<T>` into all Services

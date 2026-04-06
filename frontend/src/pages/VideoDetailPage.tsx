@@ -5,17 +5,10 @@ import {
   DialogTitle, Divider, FormControlLabel, Grid, IconButton, Paper, Radio,
   RadioGroup, Stack, TextField, Typography,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
-import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
-import CloseIcon from '@mui/icons-material/Close';
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import SearchIcon from '@mui/icons-material/Search';
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, X, Pencil, Save,
+  Ban, Plus, Trash2, FolderOpen, Search, Copy,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
 import type { DeleteMode, VideoFile } from '../api/videos';
@@ -177,7 +170,7 @@ function ImageUploadDialog({ open, label, onClose, onFile, onPathImport }: Image
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
         <Typography variant="h6">{t('videoDetail.uploadDialog.title', { label })}</Typography>
         <IconButton size="small" onClick={onClose} disabled={busy}>
-          <CloseIcon fontSize="small" />
+          <X size={18} />
         </IconButton>
       </DialogTitle>
       <DialogContent>
@@ -321,7 +314,7 @@ function DeleteConfirmDialog({ open, count, onClose, onConfirm }: DeleteConfirmD
           color="error"
           onClick={handleConfirm}
           disabled={submitting}
-          startIcon={submitting ? <CircularProgress size={16} /> : <DeleteIcon />}
+          startIcon={submitting ? <CircularProgress size={16} /> : <Trash2 size={18} />}
         >
           {t('videos.batchDelete.submit')}
         </Button>
@@ -352,7 +345,7 @@ function ImagePreviewDialog({ open, imageUrl, imageAlt, onClose, onEdit }: Image
         }}
       >
         <IconButton onClick={onClose} sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 1 }}>
-          <CloseIcon />
+          <X size={20} />
         </IconButton>
         <Box
           component="img"
@@ -363,7 +356,7 @@ function ImagePreviewDialog({ open, imageUrl, imageAlt, onClose, onEdit }: Image
         />
         <Button
           variant="contained"
-          startIcon={<EditIcon />}
+          startIcon={<Pencil size={18} />}
           onClick={e => { e.stopPropagation(); onEdit(); }}
           sx={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)' }}
         >
@@ -737,7 +730,7 @@ export default function VideoDetailPage() {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={navigateBackToList}>
+        <Button startIcon={<ArrowLeft size={18} />} onClick={navigateBackToList}>
           {t('videoDetail.backToList')}
         </Button>
         {navIds.length > 0 && (
@@ -751,7 +744,7 @@ export default function VideoDetailPage() {
               }}
               title={t('videoDetail.prevFile')}
             >
-              <ArrowBackIosNewIcon fontSize="small" />
+              <ChevronLeft size={18} />
             </IconButton>
             <IconButton
               size="small"
@@ -762,7 +755,7 @@ export default function VideoDetailPage() {
               }}
               title={t('videoDetail.nextFile')}
             >
-              <ArrowForwardIosIcon fontSize="small" />
+              <ChevronRight size={18} />
             </IconButton>
           </Stack>
         )}
@@ -774,13 +767,13 @@ export default function VideoDetailPage() {
             {fileManagement && (
               <Button
                 color="error"
-                startIcon={<DeleteIcon />}
+                startIcon={<Trash2 size={18} />}
                 onClick={() => setDeleteDialogOpen(true)}
               >
                 {t('videoDetail.delete')}
               </Button>
             )}
-            <Button variant="contained" startIcon={<EditIcon />} onClick={handleEdit}>
+            <Button variant="contained" startIcon={<Pencil size={18} />} onClick={handleEdit}>
               {t('videoDetail.edit')}
             </Button>
           </Stack>
@@ -788,13 +781,13 @@ export default function VideoDetailPage() {
           <Stack direction="row" spacing={1}>
             <Button
               variant="contained"
-              startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+              startIcon={saving ? <CircularProgress size={16} /> : <Save size={18} />}
               onClick={handleSave}
               disabled={saving}
             >
               {t('videoDetail.save')}
             </Button>
-            <Button startIcon={<CancelIcon />} onClick={handleCancel} disabled={saving}>
+            <Button startIcon={<Ban size={18} />} onClick={handleCancel} disabled={saving}>
               {t('videoDetail.cancel')}
             </Button>
           </Stack>
@@ -836,11 +829,10 @@ export default function VideoDetailPage() {
                   <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.fanart')}</Typography>
                   <Chip label={video.hasFanart ? t('videoDetail.exists') : t('videoDetail.missing')} color={video.hasFanart ? 'success' : 'default'} size="small" />
                 </Grid>
-                <Grid size={12} sx={{ mt: 0.5 }}>
-                  <Button
+                <Grid size={12} sx={{ mt: 0.5, display: 'flex', gap: 0.5 }}>
+                  <IconButton
                     size="small"
-                    variant="outlined"
-                    startIcon={<SearchIcon />}
+                    title={t('search.googleImages')}
                     onClick={() => {
                       const query = cleanForSearch(video.fileName);
                       window.open(
@@ -850,13 +842,11 @@ export default function VideoDetailPage() {
                       );
                     }}
                   >
-                    {t('search.googleImages')}
-                  </Button>
-                  <Button
+                    <Search size={18} />
+                  </IconButton>
+                  <IconButton
                     size="small"
-                    variant="outlined"
-                    startIcon={<FolderOpenIcon />}
-                    sx={{ ml: 1 }}
+                    title={t('videoDetail.revealInFileManager')}
                     onClick={async () => {
                       try {
                         const res = await videosApi.revealInFileManager(video.id);
@@ -874,8 +864,22 @@ export default function VideoDetailPage() {
                       }
                     }}
                   >
-                    {t('videoDetail.revealInFileManager')}
-                  </Button>
+                    <FolderOpen size={18} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    title={t('videoDetail.copyFilePath')}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(video.filePath);
+                        notify(t('videoDetail.copyFilePathSuccess'), 'success');
+                      } catch {
+                        notify(t('videoDetail.copyFilePathFailed'), 'error');
+                      }
+                    }}
+                  >
+                    <Copy size={18} />
+                  </IconButton>
                 </Grid>
               </Grid>
             </Paper>
@@ -979,11 +983,11 @@ export default function VideoDetailPage() {
                               onChange={e => setForm(prev => prev ? { ...prev, ratings: prev.ratings.map((x, i) => i === idx ? { ...x, votes: e.target.value } : x) } : prev)}
                               sx={{ flex: 1 }} disabled={saving} />
                             <IconButton size="small" onClick={() => setForm(prev => prev ? { ...prev, ratings: prev.ratings.filter((_, i) => i !== idx) } : prev)} disabled={saving}>
-                              <DeleteIcon fontSize="small" />
+                              <Trash2 size={16} />
                             </IconButton>
                           </Box>
                         ))}
-                        <Button size="small" startIcon={<AddIcon />} disabled={saving}
+                        <Button size="small" startIcon={<Plus size={18} />} disabled={saving}
                           onClick={() => setForm(prev => prev ? { ...prev, ratings: [...prev.ratings, { name: 'default', value: '', votes: '0', max: '10' }] } : prev)}>
                           {t('videoDetail.addRating')}
                         </Button>
@@ -1003,11 +1007,11 @@ export default function VideoDetailPage() {
                               onChange={e => setForm(prev => prev ? { ...prev, uniqueIds: prev.uniqueIds.map((x, i) => i === idx ? { ...x, value: e.target.value } : x) } : prev)}
                               sx={{ flex: 2 }} disabled={saving} />
                             <IconButton size="small" onClick={() => setForm(prev => prev ? { ...prev, uniqueIds: prev.uniqueIds.filter((_, i) => i !== idx) } : prev)} disabled={saving}>
-                              <DeleteIcon fontSize="small" />
+                              <Trash2 size={16} />
                             </IconButton>
                           </Box>
                         ))}
-                        <Button size="small" startIcon={<AddIcon />} disabled={saving}
+                        <Button size="small" startIcon={<Plus size={18} />} disabled={saving}
                           onClick={() => setForm(prev => prev ? { ...prev, uniqueIds: [...prev.uniqueIds, { type: 'imdb', value: '' }] } : prev)}>
                           {t('videoDetail.addUniqueId')}
                         </Button>
@@ -1254,13 +1258,13 @@ export default function VideoDetailPage() {
                         } : prev)}
                         disabled={saving}
                       >
-                        <DeleteIcon fontSize="small" />
+                        <Trash2 size={16} />
                       </IconButton>
                     </Box>
                   ))}
                   <Button
                     size="small"
-                    startIcon={<AddIcon />}
+                    startIcon={<Plus size={18} />}
                     onClick={() => setForm(prev => prev ? {
                       ...prev,
                       actors: [...prev.actors, { name: '', role: '' }],
