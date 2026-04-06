@@ -126,6 +126,8 @@
     "ratingSource": "来源",
     "ratingValue": "评分",
     "ratingVotes": "投票数",
+    "playVideo": "播放视频",
+    "playVideoFailed": "无法打开视频文件",
     "revealInFileManager": "在文件管理器中显示",
     "revealFallbackCopied": "文件路径已复制到剪贴板",
     "revealFailed": "无法打开文件管理器或复制路径",

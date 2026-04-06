@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, X, Pencil, Save,
-  Ban, Plus, Trash2, FolderOpen, Search, Copy,
+  Ban, Plus, Trash2, FolderOpen, Search, Copy, Play,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
@@ -844,6 +844,22 @@ export default function VideoDetailPage() {
                     }}
                   >
                     <Search size={18} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    title={t('videoDetail.playVideo')}
+                    onClick={async () => {
+                      try {
+                        const res = await videosApi.openVideoFile(video.id);
+                        if (!res.success) {
+                          notify(t('videoDetail.playVideoFailed'), 'error');
+                        }
+                      } catch {
+                        notify(t('videoDetail.playVideoFailed'), 'error');
+                      }
+                    }}
+                  >
+                    <Play size={18} />
                   </IconButton>
                   <IconButton
                     size="small"

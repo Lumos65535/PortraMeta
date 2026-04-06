@@ -143,4 +143,5 @@ public interface IVideoService
     Task<Result<BatchUpdateResult>> BatchUpdateAsync(BatchUpdateVideoRequest request, CancellationToken ct = default);
     Task<Result<BatchDeleteResult>> BatchDeleteAsync(BatchDeleteRequest request, CancellationToken ct = default);
     Task<Result> RevealInFileManagerAsync(int id, CancellationToken ct = default);
+    Task<Result> OpenVideoFileAsync(int id, CancellationToken ct = default);
 }

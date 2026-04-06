@@ -126,6 +126,8 @@
     "ratingSource": "Source",
     "ratingValue": "Score",
     "ratingVotes": "Votes",
+    "playVideo": "Play video",
+    "playVideoFailed": "Failed to open video file",
     "revealInFileManager": "Reveal in File Manager",
     "revealFallbackCopied": "File path copied to clipboard",
     "revealFailed": "Could not reveal file or copy path",

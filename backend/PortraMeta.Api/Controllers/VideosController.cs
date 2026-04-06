@@ -145,6 +145,15 @@ public class VideosController(IVideoService videoService) : ControllerBase
             : BadRequest(new { error = result.Error, success = false });
     }
 
+    [HttpPost("{id:int}/open")]
+    public async Task<IActionResult> OpenVideoFile(int id, CancellationToken ct)
+    {
+        var result = await videoService.OpenVideoFileAsync(id, ct);
+        return result.Success
+            ? Ok(new { success = true })
+            : BadRequest(new { error = result.Error, success = false });
+    }
+
     [HttpPost("{id:int}/fanart/from-path")]
     public async Task<IActionResult> ImportFanartFromPath(int id, [FromBody] ImportFromPathRequest request, CancellationToken ct)
     {

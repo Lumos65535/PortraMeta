@@ -582,6 +582,44 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         }
     }
 
+    public async Task<Result> OpenVideoFileAsync(int id, CancellationToken ct = default)
+    {
+        var filePath = await db.VideoFiles
+            .Where(v => v.Id == id)
+            .Select(v => v.FilePath)
+            .FirstOrDefaultAsync(ct);
+
+        if (filePath is null)
+            return Result.Fail("Video not found");
+
+        if (!File.Exists(filePath))
+            return Result.Fail("File not found on disk");
+
+        try
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Process.Start("open", $"\"{filePath}\"");
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+            }
+            else
+            {
+                Process.Start("xdg-open", $"\"{filePath}\"");
+            }
+
+            logger.LogInformation("Opened video file: {FilePath}", filePath);
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to open video file: {FilePath}", filePath);
+            return Result.Fail("Cannot open video file in this environment");
+        }
+    }
+
     private static void DeleteFileIfExists(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); }
