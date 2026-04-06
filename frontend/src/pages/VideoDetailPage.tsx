@@ -729,12 +729,12 @@ export default function VideoDetailPage() {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Button startIcon={<ArrowLeft size={18} />} onClick={navigateBackToList}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, minWidth: 0 }}>
+        <Button sx={{ flexShrink: 0 }} startIcon={<ArrowLeft size={18} />} onClick={navigateBackToList}>
           {t('videoDetail.backToList')}
         </Button>
         {navIds.length > 0 && (
-          <Stack direction="row" spacing={0.5}>
+          <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
             <IconButton
               size="small"
               disabled={crossPageLoading || (prevId === null && !hasPrevPage)}
@@ -759,11 +759,11 @@ export default function VideoDetailPage() {
             </IconButton>
           </Stack>
         )}
-        <Typography variant="h5" sx={{ flexGrow: 1 }}>
+        <Typography variant="h5" sx={{ flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={(video.hasNfo && video.title) ? video.title : video.fileName}>
           {(video.hasNfo && video.title) ? video.title : video.fileName}
         </Typography>
         {!editing ? (
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
             {fileManagement && (
               <Button
                 color="error"
@@ -778,7 +778,7 @@ export default function VideoDetailPage() {
             </Button>
           </Stack>
         ) : (
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
             <Button
               variant="contained"
               startIcon={saving ? <CircularProgress size={16} /> : <Save size={18} />}
