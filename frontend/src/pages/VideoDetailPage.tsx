@@ -834,7 +834,8 @@ export default function VideoDetailPage() {
                     size="small"
                     title={t('search.googleImages')}
                     onClick={() => {
-                      const query = cleanForSearch(video.fileName);
+                      const source = (video.hasNfo && video.title) ? video.title : video.fileName;
+                      const query = cleanForSearch(source);
                       window.open(
                         `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`,
                         '_blank',

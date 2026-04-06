@@ -46,4 +46,32 @@ describe('cleanForSearch', () => {
   it('returns empty string for resolution-only filename', () => {
     expect(cleanForSearch('1080p.mkv')).toBe('');
   });
+
+  it('removes en-dash and em-dash', () => {
+    expect(cleanForSearch('Title\u2013Subtitle\u2014Extra.mkv')).toBe('Title Subtitle Extra');
+  });
+
+  it('splits camelCase words', () => {
+    expect(cleanForSearch('myGreatMovie.mkv')).toBe('my Great Movie');
+  });
+
+  it('splits PascalCase words', () => {
+    expect(cleanForSearch('MyGreatMovie.mkv')).toBe('My Great Movie');
+  });
+
+  it('splits uppercase sequences followed by camelCase', () => {
+    expect(cleanForSearch('XMLParser.mkv')).toBe('XML Parser');
+  });
+
+  it('handles mixed symbols and camelCase', () => {
+    expect(cleanForSearch('studio_myGreatTitle-1080p.mkv')).toBe('studio my Great Title');
+  });
+
+  it('works with NFO title input (no extension)', () => {
+    expect(cleanForSearch('MyMovie')).toBe('My Movie');
+  });
+
+  it('handles title with dashes', () => {
+    expect(cleanForSearch('Some\u2014Long Title')).toBe('Some Long Title');
+  });
 });
