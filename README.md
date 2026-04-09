@@ -131,6 +131,33 @@ All files are co-located with the video:
 - [Contributing Guide](docs/CONTRIBUTING.md) — Development setup and coding standards
 - [Swagger UI](http://localhost:5000/swagger) — Interactive API explorer (when running)
 
+## Keyboard Shortcuts
+
+PortraMeta supports keyboard shortcuts on the Video Detail Page to speed up browsing and editing.
+
+### Navigation (View Mode)
+
+| Shortcut | Action |
+|----------|--------|
+| `←` / `[` | Previous file |
+| `→` / `]` | Next file |
+| `Esc` | Return to video list |
+| `E` | Enter edit mode |
+
+### Editing (Edit Mode)
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+S` / `Cmd+S` | Save changes |
+| `Esc` | Cancel editing |
+| `Shift+A` | Add actor |
+| `Shift+D` | Remove last actor |
+| `Tab` / `Shift+Tab` | Move between input fields (browser native) |
+
+> Shortcuts are suppressed when typing in input fields (except `Ctrl/Cmd+S`). When a dialog is open, all shortcuts are disabled.
+>
+> Pressing `E` to enter edit mode will automatically focus the first input field.
+
 ## Architecture
 
 PortraMeta treats **NFO files as the source of truth** for metadata. SQLite serves only as a fast index/cache for querying and filtering. All write operations persist to both the NFO file and the database. Rescanning a library re-syncs data from NFO files into SQLite.

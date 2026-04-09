@@ -13,9 +13,11 @@ import { useTranslation } from 'react-i18next';
 import { videosApi } from '../api/videos';
 import type { DeleteMode, VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { cleanForSearch } from '../utils/filename';
 import { getFieldVisibility, isFieldVisible } from '../utils/fieldVisibility';
 import type { FieldVisibility } from '../utils/fieldVisibility';
+import { formatAction } from '../utils/shortcuts';
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -556,6 +558,26 @@ export default function VideoDetailPage() {
   const [fileManagement] = useState(() => localStorage.getItem('portrameta_file_management') === 'true');
   const [fieldVis] = useState<FieldVisibility>(getFieldVisibility);
 
+  const handlePrev = useCallback(() => {
+    if (prevId !== null) navigateTo(prevId);
+    else if (hasPrevPage) navigateCrossPage('prev');
+  }, [prevId, hasPrevPage, navigateCrossPage]);
+
+  const handleNext = useCallback(() => {
+    if (nextId !== null) navigateTo(nextId);
+    else if (hasNextPage) navigateCrossPage('next');
+  }, [nextId, hasNextPage, navigateCrossPage]);
+
+  const handleAddActor = useCallback(() => {
+    setForm(prev => prev ? { ...prev, actors: [...prev.actors, { name: '', role: '' }] } : prev);
+  }, []);
+
+  const handleRemoveLastActor = useCallback(() => {
+    setForm(prev => prev && prev.actors.length > 0
+      ? { ...prev, actors: prev.actors.slice(0, -1) }
+      : prev);
+  }, []);
+
   useEffect(() => {
     if (!id) return;
     videosApi.getById(Number(id))
@@ -589,6 +611,12 @@ export default function VideoDetailPage() {
   const handleEdit = () => {
     if (video) setForm(toEditState(video));
     setEditing(true);
+    requestAnimationFrame(() => {
+      const firstInput = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+        'input:not([disabled]), textarea:not([disabled])',
+      );
+      firstInput?.focus();
+    });
   };
 
   const handleCancel = () => {
@@ -716,6 +744,18 @@ export default function VideoDetailPage() {
       actors: prev.actors.map((a, i) => i === idx ? { ...a, [field]: value } : a),
     } : prev);
 
+  const anyDialogOpen = dialogTarget !== null || previewTarget !== null || deleteDialogOpen;
+  useKeyboardShortcuts({
+    'nav.prev': crossPageLoading || (prevId === null && !hasPrevPage) ? null : handlePrev,
+    'nav.next': crossPageLoading || (nextId === null && !hasNextPage) ? null : handleNext,
+    'nav.back': editing ? null : navigateBackToList,
+    'edit.start': editing ? null : handleEdit,
+    'edit.save': editing && !saving ? handleSave : null,
+    'edit.cancel': editing ? handleCancel : null,
+    'actor.add': editing && !saving ? handleAddActor : null,
+    'actor.removeLast': editing && !saving && form && form.actors.length > 0 ? handleRemoveLastActor : null,
+  }, { disabled: anyDialogOpen || loading });
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -738,22 +778,16 @@ export default function VideoDetailPage() {
             <IconButton
               size="small"
               disabled={crossPageLoading || (prevId === null && !hasPrevPage)}
-              onClick={() => {
-                if (prevId !== null) navigateTo(prevId);
-                else if (hasPrevPage) navigateCrossPage('prev');
-              }}
-              title={t('videoDetail.prevFile')}
+              onClick={handlePrev}
+              title={`${t('videoDetail.prevFile')} (${formatAction('nav.prev')})`}
             >
               <ChevronLeft size={18} />
             </IconButton>
             <IconButton
               size="small"
               disabled={crossPageLoading || (nextId === null && !hasNextPage)}
-              onClick={() => {
-                if (nextId !== null) navigateTo(nextId);
-                else if (hasNextPage) navigateCrossPage('next');
-              }}
-              title={t('videoDetail.nextFile')}
+              onClick={handleNext}
+              title={`${t('videoDetail.nextFile')} (${formatAction('nav.next')})`}
             >
               <ChevronRight size={18} />
             </IconButton>
@@ -773,7 +807,7 @@ export default function VideoDetailPage() {
                 {t('videoDetail.delete')}
               </Button>
             )}
-            <Button variant="contained" startIcon={<Pencil size={18} />} onClick={handleEdit}>
+            <Button variant="contained" startIcon={<Pencil size={18} />} onClick={handleEdit} title={formatAction('edit.start')}>
               {t('videoDetail.edit')}
             </Button>
           </Stack>
@@ -784,10 +818,11 @@ export default function VideoDetailPage() {
               startIcon={saving ? <CircularProgress size={16} /> : <Save size={18} />}
               onClick={handleSave}
               disabled={saving}
+              title={formatAction('edit.save')}
             >
               {t('videoDetail.save')}
             </Button>
-            <Button startIcon={<Ban size={18} />} onClick={handleCancel} disabled={saving}>
+            <Button startIcon={<Ban size={18} />} onClick={handleCancel} disabled={saving} title={formatAction('edit.cancel')}>
               {t('videoDetail.cancel')}
             </Button>
           </Stack>
@@ -1282,11 +1317,9 @@ export default function VideoDetailPage() {
                   <Button
                     size="small"
                     startIcon={<Plus size={18} />}
-                    onClick={() => setForm(prev => prev ? {
-                      ...prev,
-                      actors: [...prev.actors, { name: '', role: '' }],
-                    } : prev)}
+                    onClick={handleAddActor}
                     disabled={saving}
+                    title={formatAction('actor.add')}
                   >
                     {t('videoDetail.addActor')}
                   </Button>

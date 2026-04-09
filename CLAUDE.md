@@ -243,10 +243,13 @@ Completed:
 16. ✅ Video list full NFO column support (all Kodi NFO fields available as selectable columns, excluding actors)
 17. ✅ Column menu button pinned to top-right corner of DataGrid (no longer scrolls with columns)
 
+18. ✅ Keyboard shortcuts for VideoDetailPage (navigation, edit, actor operations) with extensible ShortcutMap architecture
+
 Pending:
-18. Video list column filtering (see Column Filtering Plan below)
-19. Scraper interface stub `/api/scrapers` (not yet implemented)
-20. Tauri desktop client packaging (macOS / Windows)
+19. Video list column filtering (see Column Filtering Plan below)
+20. Settings page shortcut customization (see Keyboard Shortcuts section)
+21. Scraper interface stub `/api/scrapers` (not yet implemented)
+22. Tauri desktop client packaging (macOS / Windows)
 
 ## Column Filtering Plan (Pending)
 
@@ -277,29 +280,49 @@ All other columns (title, year, studioName, directors, genres, runtime, mpaa, et
 - Column definitions can specify `filterable: false` to disable filtering on specific columns (e.g., `filePath`)
 - The column menu button (pinned top-right) currently controls visibility; filtering is accessed via each column's header menu (three-dot icon per column header, built into DataGrid)
 
-## Keyboard Shortcuts Plan (Pending)
+## Keyboard Shortcuts (Implemented)
 
-Plan to add keyboard shortcut support in VideoDetailPage and globally to improve browsing efficiency.
+Keyboard shortcuts are implemented in VideoDetailPage via a data-driven shortcut system.
 
-### File Navigation
+### Architecture
+
+- `frontend/src/utils/shortcuts.ts` — `ShortcutMap` type definitions, default bindings, localStorage persistence (`portrameta_shortcuts` key), and display formatting utilities
+- `frontend/src/hooks/useKeyboardShortcuts.ts` — React hook that registers a single `keydown` listener using refs (no re-registration on state changes), matches events against the `ShortcutMap`, and dispatches to action handlers
+- Shortcut definitions are data-driven (`ShortcutMap` record) to support future user customization via Settings page
+
+### Current Shortcuts (VideoDetailPage)
+
+#### File Navigation (non-edit mode only)
 | Shortcut | Action |
 |----------|--------|
 | `←` / `[` | Go to previous file |
 | `→` / `]` | Go to next file |
-| `Backspace` / `Escape` | Return to video list |
+| `Escape` | Return to video list |
 
-### Edit Operations
+#### Edit Operations
 | Shortcut | Action |
 |----------|--------|
-| `E` | Enter edit mode (when no input field is focused) |
-| `Ctrl+S` | Save current edits |
-| `Escape` | Cancel editing (while in edit mode) |
+| `E` | Enter edit mode (non-edit mode, not in input field) |
+| `Ctrl/Cmd+S` | Save current edits (works even when in input field) |
+| `Escape` | Cancel editing (edit mode) |
 
-### Implementation Notes
-- Register global shortcuts via `useEffect` + `window.addEventListener('keydown', ...)`
-- Check whether current focus is in an input field (`event.target` is `INPUT`, `TEXTAREA`, `SELECT`, or `[contenteditable]`) — if so, do not trigger shortcuts
-- Can be encapsulated as a custom hook `useKeyboardNav`, accepting `prevId`, `nextId`, and `editing` state as parameters
-- Note: shortcut listeners must be re-registered when `editing` state changes (update deps array)
+#### Actor Operations (edit mode only)
+| Shortcut | Action |
+|----------|--------|
+| `Shift+A` | Add empty actor |
+| `Shift+D` | Remove last actor |
+
+### Behavior Rules
+- When focus is in INPUT/TEXTAREA/SELECT/contenteditable, only `Ctrl/Cmd+S` is handled; all others suppressed
+- When any dialog is open (image upload, preview, delete), all shortcuts are suppressed
+- Escape behavior depends on `editing` state: cancel edit (edit mode) vs. return to list (view mode)
+- Button tooltips display shortcut hints via `formatAction()`
+
+### Pending: Settings Page Shortcut Customization
+- Add a new section in SettingsPage to display and customize shortcut bindings
+- Each action shows current key binding(s) as Chips; click to capture new keypress
+- Uses `saveShortcuts()` / `resetShortcuts()` from `shortcuts.ts`
+- The hook reads from `getShortcuts()` which already supports localStorage overrides
 
 ## Known Limitations
 
