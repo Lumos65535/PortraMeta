@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using PortraMeta.Core.Interfaces;
@@ -99,6 +101,15 @@ app.UseSwaggerUI(options =>
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "PortraMeta API v1");
 });
 
+// Security headers
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+
 app.UseCors();
 
 // Optional API Key authentication — enabled only when "Auth:ApiKey" is non-empty.
@@ -106,16 +117,24 @@ app.UseCors();
 var apiKey = builder.Configuration["Auth:ApiKey"];
 if (!string.IsNullOrWhiteSpace(apiKey))
 {
+    var apiKeyBytes = Encoding.UTF8.GetBytes(apiKey);
     app.Use(async (ctx, next) =>
     {
-        if (ctx.Request.Method != "OPTIONS"
-            && (!ctx.Request.Headers.TryGetValue("X-Api-Key", out var providedKey)
-                || providedKey != apiKey))
+        if (ctx.Request.Method != "OPTIONS")
         {
-            ctx.Response.StatusCode = 401;
-            ctx.Response.ContentType = "application/json";
-            await ctx.Response.WriteAsJsonAsync(new { success = false, error = "Unauthorized" });
-            return;
+            var isValid = ctx.Request.Headers.TryGetValue("X-Api-Key", out var providedKey)
+                && !string.IsNullOrEmpty(providedKey)
+                && CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(providedKey!),
+                    apiKeyBytes);
+
+            if (!isValid)
+            {
+                ctx.Response.StatusCode = 401;
+                ctx.Response.ContentType = "application/json";
+                await ctx.Response.WriteAsJsonAsync(new { success = false, error = "Unauthorized" });
+                return;
+            }
         }
         await next();
     });

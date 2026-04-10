@@ -4,7 +4,9 @@ namespace PortraMeta.Core.Interfaces;
 
 public record LibraryDto(int Id, string Name, string Path, DateTime CreatedAt);
 public record CreateLibraryRequest(string Name, string Path);
-public record ScanResultDto(int Total, int Added, int Updated, int Skipped, int NfoParsed, int ExcludedFolders);
+public record ScanResultDto(int Total, int Added, int Updated, int Skipped, int NfoParsed, int ExcludedFolders, int Removed);
+
+public record ScanProgressDto(string Phase, int Processed, int Total, DateTime StartedAt, bool IsRunning);
 
 public interface ILibraryService
 {
@@ -22,4 +24,7 @@ public interface ILibraryService
 
     /// <summary>Replaces the full set of excluded folder paths for a library.</summary>
     Task<Result> SetExcludedFoldersAsync(int id, IReadOnlyList<string> paths, CancellationToken ct = default);
+
+    /// <summary>Returns the current scan progress for a library, or null if no scan is running.</summary>
+    ScanProgressDto? GetScanProgress(int id);
 }

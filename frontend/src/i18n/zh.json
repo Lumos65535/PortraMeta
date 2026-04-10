@@ -194,7 +194,7 @@
     "addSuccess": "媒体库 \"{{name}}\" 添加成功",
     "addFailed": "添加失败",
     "deleteSuccess": "媒体库 \"{{name}}\" 已删除",
-    "scanSuccess": "扫描完成：共 {{total}} 个文件，新增 {{added}}，更新 {{updated}}，跳过 {{skipped}}，解析 NFO {{nfoParsed}} 个",
+    "scanSuccess": "扫描完成：共 {{total}} 个文件，新增 {{added}}，更新 {{updated}}，跳过 {{skipped}}，解析 NFO {{nfoParsed}} 个，移除 {{removed}}",
     "scanFailed": "扫描失败",
     "columns": {
       "name": "名称",

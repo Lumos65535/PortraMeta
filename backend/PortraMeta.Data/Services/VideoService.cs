@@ -16,6 +16,12 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
     private static readonly HashSet<string> AllowedMimeTypes =
         ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
+    // File magic byte signatures for image validation
+    private static readonly byte[] JpegMagic = [0xFF, 0xD8, 0xFF];
+    private static readonly byte[] PngMagic = [0x89, 0x50, 0x4E, 0x47];
+    private static readonly byte[] WebpRiff = [0x52, 0x49, 0x46, 0x46]; // "RIFF"
+    private static readonly byte[] WebpTag = [0x57, 0x45, 0x42, 0x50]; // "WEBP"
+
     public async Task<Result<PagedResult<VideoFileDto>>> GetAllAsync(
         VideoFileFilter filter, int page, int pageSize, CancellationToken ct = default)
     {
@@ -238,6 +244,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         if (!AllowedMimeTypes.Contains(contentType.ToLowerInvariant()))
             return Result<VideoFileDto>.Fail("Invalid file type. Only JPEG, PNG, and WebP are allowed");
 
+        if (!ValidateImageMagicBytes(imageStream))
+            return Result<VideoFileDto>.Fail("File content does not match a supported image format");
+
         var destPath = FileSystemScanner.PosterPath(v.FilePath);
         try
         {
@@ -297,6 +306,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
         if (!AllowedMimeTypes.Contains(contentType.ToLowerInvariant()))
             return Result<VideoFileDto>.Fail("Invalid file type. Only JPEG, PNG, and WebP are allowed");
+
+        if (!ValidateImageMagicBytes(imageStream))
+            return Result<VideoFileDto>.Fail("File content does not match a supported image format");
 
         var destPath = FileSystemScanner.FanartPath(v.FilePath);
         try
@@ -393,6 +405,13 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             await db.SaveChangesAsync(ct);
         }
 
+        // Load all target videos in a single query to avoid N+1
+        var videos = await db.VideoFiles
+            .Where(v => request.Ids.Contains(v.Id))
+            .Include(v => v.Studio)
+            .Include(v => v.VideoActors).ThenInclude(va => va.Actor)
+            .ToDictionaryAsync(v => v.Id, ct);
+
         var failed = new List<int>();
         int updated = 0;
 
@@ -400,12 +419,7 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         {
             try
             {
-                var v = await db.VideoFiles
-                    .Include(v => v.Studio)
-                    .Include(v => v.VideoActors).ThenInclude(va => va.Actor)
-                    .FirstOrDefaultAsync(v => v.Id == id, ct);
-
-                if (v is null)
+                if (!videos.TryGetValue(id, out var v))
                 {
                     logger.LogWarning("Batch update: video not found: {Id}", id);
                     failed.Add(id);
@@ -562,16 +576,23 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                Process.Start("open", $"-R \"{filePath}\"");
+                var psi = new ProcessStartInfo("open") { UseShellExecute = false };
+                psi.ArgumentList.Add("-R");
+                psi.ArgumentList.Add(filePath);
+                Process.Start(psi);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                Process.Start("explorer.exe", $"/select,\"{filePath}\"");
+                var psi = new ProcessStartInfo("explorer.exe") { UseShellExecute = false };
+                psi.ArgumentList.Add($"/select,{filePath}");
+                Process.Start(psi);
             }
             else
             {
                 var dir = Path.GetDirectoryName(filePath)!;
-                Process.Start("xdg-open", $"\"{dir}\"");
+                var psi = new ProcessStartInfo("xdg-open") { UseShellExecute = false };
+                psi.ArgumentList.Add(dir);
+                Process.Start(psi);
             }
 
             logger.LogInformation("Revealed file in file manager: {FilePath}", filePath);
@@ -601,15 +622,25 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                Process.Start("open", $"\"{filePath}\"");
+                var psi = new ProcessStartInfo("open") { UseShellExecute = false };
+                psi.ArgumentList.Add(filePath);
+                Process.Start(psi);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+                // Use cmd /c start to open with default association without UseShellExecute
+                var psi = new ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true };
+                psi.ArgumentList.Add("/c");
+                psi.ArgumentList.Add("start");
+                psi.ArgumentList.Add("");
+                psi.ArgumentList.Add(filePath);
+                Process.Start(psi);
             }
             else
             {
-                Process.Start("xdg-open", $"\"{filePath}\"");
+                var psi = new ProcessStartInfo("xdg-open") { UseShellExecute = false };
+                psi.ArgumentList.Add(filePath);
+                Process.Start(psi);
             }
 
             logger.LogInformation("Opened video file: {FilePath}", filePath);
@@ -620,6 +651,36 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             logger.LogWarning(ex, "Failed to open video file: {FilePath}", filePath);
             return Result.Fail("Cannot open video file in this environment");
         }
+    }
+
+    /// <summary>
+    /// Validates that the stream content starts with a known image file signature.
+    /// The stream position is reset to the beginning after validation.
+    /// </summary>
+    private static bool ValidateImageMagicBytes(Stream stream)
+    {
+        if (!stream.CanSeek) return true; // skip validation if stream is not seekable
+
+        var header = new byte[12];
+        var bytesRead = stream.Read(header, 0, header.Length);
+        stream.Position = 0;
+
+        if (bytesRead < 3) return false;
+
+        // JPEG: FF D8 FF
+        if (header.AsSpan(0, 3).SequenceEqual(JpegMagic))
+            return true;
+
+        // PNG: 89 50 4E 47
+        if (bytesRead >= 4 && header.AsSpan(0, 4).SequenceEqual(PngMagic))
+            return true;
+
+        // WebP: RIFF....WEBP
+        if (bytesRead >= 12 && header.AsSpan(0, 4).SequenceEqual(WebpRiff)
+                            && header.AsSpan(8, 4).SequenceEqual(WebpTag))
+            return true;
+
+        return false;
     }
 
     private static void DeleteFileIfExists(string path)

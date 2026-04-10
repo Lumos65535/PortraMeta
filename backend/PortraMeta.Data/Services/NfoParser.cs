@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Xml;
 using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using PortraMeta.Core.Interfaces;
@@ -14,7 +16,9 @@ public class NfoParser(ILogger<NfoParser> logger) : INfoParser
         try
         {
             var content = await File.ReadAllTextAsync(nfoPath, ct);
-            var doc = XDocument.Parse(content);
+            var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit };
+            using var reader = XmlReader.Create(new StringReader(content), settings);
+            var doc = XDocument.Load(reader);
             var root = doc.Root;
 
             if (root is null || root.Name.LocalName != "movie")
@@ -46,15 +50,15 @@ public class NfoParser(ILogger<NfoParser> logger) : INfoParser
                 {
                     var name = r.Attribute("name")?.Value ?? "default";
                     var max = int.TryParse(r.Attribute("max")?.Value, out var m) ? m : 10;
-                    if (decimal.TryParse(r.Element("value")?.Value, out var val))
+                    if (decimal.TryParse(r.Element("value")?.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var val))
                     {
-                        int.TryParse(r.Element("votes")?.Value, out var votes);
+                        int.TryParse(r.Element("votes")?.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var votes);
                         ratings.Add(new NfoRating(name, val, votes, max));
                     }
                 }
             }
             // Also support legacy <rating>8.5</rating> as a single rating
-            if (ratings.Count == 0 && decimal.TryParse(Get("rating"), out var legacyRating))
+            if (ratings.Count == 0 && decimal.TryParse(Get("rating"), NumberStyles.Any, CultureInfo.InvariantCulture, out var legacyRating))
             {
                 ratings.Add(new NfoRating("default", legacyRating, 0));
             }

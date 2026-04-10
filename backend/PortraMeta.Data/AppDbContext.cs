@@ -20,6 +20,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<VideoFile>(entity =>
         {
             entity.HasIndex(v => v.FilePath).IsUnique();
+            entity.HasIndex(v => v.LibraryId);
+            entity.HasIndex(v => v.StudioId);
             entity.Property(v => v.FileName).UseCollation("NOCASE");
             entity.Property(v => v.Title).UseCollation("NOCASE");
             entity.Property(v => v.OriginalTitle).UseCollation("NOCASE");
@@ -30,6 +32,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.HasIndex(s => s.Name).IsUnique();
             entity.Property(s => s.Name).UseCollation("NOCASE");
+        });
+
+        modelBuilder.Entity<Actor>(entity =>
+        {
+            entity.HasIndex(a => a.Name);
         });
 
         modelBuilder.Entity<ExcludedFolder>()

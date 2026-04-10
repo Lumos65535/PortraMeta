@@ -15,6 +15,15 @@ export interface ScanResult {
   skipped: number;
   nfoParsed: number;
   excludedFolders: number;
+  removed: number;
+}
+
+export interface ScanProgress {
+  phase: string;
+  processed: number;
+  total: number;
+  startedAt: string;
+  isRunning: boolean;
 }
 
 export const librariesApi = {
@@ -29,4 +38,6 @@ export const librariesApi = {
     api.get<ApiResponse<string[]>>(`/libraries/${id}/excluded-folders`).then(r => r.data),
   setExcludedFolders: (id: number, paths: string[]) =>
     api.put(`/libraries/${id}/excluded-folders`, { paths }),
+  getScanStatus: (id: number) =>
+    api.get<ApiResponse<ScanProgress | null>>(`/libraries/${id}/scan-status`).then(r => r.data),
 };
