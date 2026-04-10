@@ -4,7 +4,10 @@ import {
   Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, FormControlLabel, Grid, IconButton, Menu, MenuItem, Radio, RadioGroup, Select, TextField, Typography,
 } from '@mui/material';
-import { Trash2, Pencil, MoreVertical } from 'lucide-react';
+import {
+  Trash2, Pencil, MoreVertical, Filter, ListFilter, ArrowUp, ArrowDown,
+  EyeOff, Columns3, X, Plus,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   DataGrid,
@@ -92,6 +95,30 @@ function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
+
+const FONT_SIZE_MAP: Record<string, number> = { small: 18, medium: 20, large: 28 };
+
+function lucideSlot(Icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>) {
+  return function LucideSlotIcon(props: { fontSize?: string; className?: string; style?: React.CSSProperties }) {
+    return <Icon size={FONT_SIZE_MAP[props.fontSize ?? 'medium'] ?? 20} className={props.className} style={props.style} />;
+  };
+}
+
+const dataGridSlots = {
+  columnMenuIcon: lucideSlot(MoreVertical),
+  columnMenuFilterIcon: lucideSlot(Filter),
+  columnFilteredIcon: lucideSlot(ListFilter),
+  columnMenuSortAscendingIcon: lucideSlot(ArrowUp),
+  columnMenuSortDescendingIcon: lucideSlot(ArrowDown),
+  columnSortedAscendingIcon: lucideSlot(ArrowUp),
+  columnSortedDescendingIcon: lucideSlot(ArrowDown),
+  columnMenuHideIcon: lucideSlot(EyeOff),
+  columnMenuManageColumnsIcon: lucideSlot(Columns3),
+  columnMenuClearIcon: lucideSlot(X),
+  filterPanelAddIcon: lucideSlot(Plus),
+  filterPanelDeleteIcon: lucideSlot(Trash2),
+  filterPanelRemoveAllIcon: lucideSlot(Trash2),
+};
 
 function BooleanFilterInput(props: { item: { value?: string; field: string; operator: string }; applyValue: (item: { value?: string; field: string; operator: string }) => void }) {
   const { item, applyValue } = props;
@@ -874,6 +901,7 @@ export default function VideosPage() {
             },
           })}
               getRowId={row => row.id}
+              slots={dataGridSlots}
               columnVisibilityModel={columnVisibilityModel}
               onColumnVisibilityModelChange={setColumnVisibilityModel}
               onColumnWidthChange={params => {
