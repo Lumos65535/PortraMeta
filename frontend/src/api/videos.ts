@@ -64,6 +64,7 @@ export interface PagedResult<T> {
 export interface VideoFilter {
   has_nfo?: boolean;
   has_poster?: boolean;
+  has_fanart?: boolean;
   library_id?: number;
   studio_id?: number;
   search?: string;

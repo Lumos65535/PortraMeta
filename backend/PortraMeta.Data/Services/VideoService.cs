@@ -25,6 +25,8 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             query = query.Where(v => v.HasNfo == filter.HasNfo.Value);
         if (filter.HasPoster.HasValue)
             query = query.Where(v => v.HasPoster == filter.HasPoster.Value);
+        if (filter.HasFanart.HasValue)
+            query = query.Where(v => v.HasFanart == filter.HasFanart.Value);
         if (filter.LibraryId.HasValue)
             query = query.Where(v => v.LibraryId == filter.LibraryId.Value);
         if (filter.StudioId.HasValue)

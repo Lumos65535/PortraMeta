@@ -46,6 +46,11 @@
       "partialMsg": "Deleted {{deleted}}, {{failed}} failed",
       "failedMsg": "Failed to delete all {{count}} files"
     },
+    "filter": {
+      "all": "All",
+      "yes": "Yes (✓)",
+      "no": "No (✗)"
+    },
     "columns": {
       "filename": "Filename",
       "title": "Title",

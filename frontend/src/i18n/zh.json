@@ -46,6 +46,11 @@
       "partialMsg": "已删除 {{deleted}} 个，{{failed}} 个失败",
       "failedMsg": "全部 {{count}} 个文件删除失败"
     },
+    "filter": {
+      "all": "全部",
+      "yes": "有 (✓)",
+      "no": "无 (✗)"
+    },
     "columns": {
       "filename": "文件名",
       "title": "标题",
