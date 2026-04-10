@@ -2,14 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
-  DialogTitle, FormControlLabel, Grid, IconButton, Menu, Radio, RadioGroup, TextField, Typography,
+  DialogTitle, FormControlLabel, Grid, IconButton, Menu, MenuItem, Radio, RadioGroup, Select, TextField, Typography,
 } from '@mui/material';
-import { Trash2, Pencil, MoreVertical } from 'lucide-react';
+import {
+  Trash2, Pencil, MoreVertical, Filter, ListFilter, ArrowUp, ArrowDown,
+  EyeOff, Columns3, X, Plus,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   DataGrid,
   type GridColDef,
   type GridColumnVisibilityModel,
+  type GridFilterModel,
+  type GridFilterOperator,
   type GridPaginationModel,
   type GridSortModel,
 } from '@mui/x-data-grid';
@@ -90,6 +95,58 @@ function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
+
+const FONT_SIZE_MAP: Record<string, number> = { small: 18, medium: 20, large: 28 };
+
+function lucideSlot(Icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>) {
+  return function LucideSlotIcon(props: { fontSize?: string; className?: string; style?: React.CSSProperties }) {
+    return <Icon size={FONT_SIZE_MAP[props.fontSize ?? 'medium'] ?? 20} className={props.className} style={props.style} />;
+  };
+}
+
+const dataGridSlots = {
+  columnMenuIcon: lucideSlot(MoreVertical),
+  columnMenuFilterIcon: lucideSlot(Filter),
+  columnFilteredIcon: lucideSlot(ListFilter),
+  columnMenuSortAscendingIcon: lucideSlot(ArrowUp),
+  columnMenuSortDescendingIcon: lucideSlot(ArrowDown),
+  columnSortedAscendingIcon: lucideSlot(ArrowUp),
+  columnSortedDescendingIcon: lucideSlot(ArrowDown),
+  columnMenuHideIcon: lucideSlot(EyeOff),
+  columnMenuManageColumnsIcon: lucideSlot(Columns3),
+  columnMenuClearIcon: lucideSlot(X),
+  filterPanelAddIcon: lucideSlot(Plus),
+  filterPanelDeleteIcon: lucideSlot(Trash2),
+  filterPanelRemoveAllIcon: lucideSlot(Trash2),
+};
+
+function BooleanFilterInput(props: { item: { value?: string; field: string; operator: string }; applyValue: (item: { value?: string; field: string; operator: string }) => void }) {
+  const { item, applyValue } = props;
+  const { t } = useTranslation();
+  return (
+    <Select
+      value={item.value ?? ''}
+      onChange={e => applyValue({ ...item, value: e.target.value || undefined })}
+      size="small"
+      fullWidth
+      displayEmpty
+      sx={{ mt: 1 }}
+    >
+      <MenuItem value="">{t('videos.filter.all')}</MenuItem>
+      <MenuItem value="true">{t('videos.filter.yes')}</MenuItem>
+      <MenuItem value="false">{t('videos.filter.no')}</MenuItem>
+    </Select>
+  );
+}
+
+const booleanFilterOperators: GridFilterOperator[] = [
+  {
+    label: 'is',
+    value: 'is',
+    getApplyFilterFn: () => null,
+    InputComponent: BooleanFilterInput,
+  },
+];
 
 function readGridSettings(): {
   visibilityModel: GridColumnVisibilityModel;
@@ -339,6 +396,8 @@ export default function VideosPage() {
     useState<GridColumnVisibilityModel>(() => readGridSettings().visibilityModel);
   const [columnWidthModel, setColumnWidthModel] =
     useState<Record<string, number>>(() => readGridSettings().widthModel);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
+  const filterModelRef = useRef<GridFilterModel>({ items: [] });
 
   useEffect(() => {
     if (persistRef.current) {
@@ -369,12 +428,21 @@ export default function VideosPage() {
     try {
       const sortField = sort[0]?.field;
       const sortDir = sort[0]?.sort;
+      const filters = filterModelRef.current;
+      const boolFilter = (field: string): boolean | undefined => {
+        const item = filters.items.find(i => i.field === field);
+        if (!item?.value) return undefined;
+        return item.value === 'true';
+      };
       const res = await videosApi.getAll({
         search: searchValue || undefined,
         page: pageNum,
         page_size: PAGE_SIZE,
         sort_by: sortField,
         sort_desc: sortDir === 'desc' ? true : undefined,
+        has_nfo: boolFilter('hasNfo'),
+        has_poster: boolFilter('hasPoster'),
+        has_fanart: boolFilter('hasFanart'),
       });
       if (res.success) setResult(res.data);
     } catch (err) {
@@ -411,6 +479,13 @@ export default function VideosPage() {
     setSortModel(model);
     setPage(1);
     load(search, 1, model);
+  };
+
+  const handleFilterModelChange = (model: GridFilterModel) => {
+    setFilterModel(model);
+    filterModelRef.current = model;
+    setPage(1);
+    load(search, 1, sortModel);
   };
 
   const setColumnVisibility = (field: string, checked: boolean) => {
@@ -470,12 +545,14 @@ export default function VideosPage() {
       headerName: t('videos.columns.filename'),
       minWidth: 180,
       width: columnWidthModel.fileName ?? COLUMN_DEFAULT_WIDTHS.fileName,
+      filterable: false,
     },
     {
       field: 'title',
       headerName: t('videos.columns.title'),
       minWidth: 160,
       width: columnWidthModel.title ?? COLUMN_DEFAULT_WIDTHS.title,
+      filterable: false,
       valueGetter: (_value, row) => row.title ?? '—',
     },
     {
@@ -483,6 +560,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.year'),
       minWidth: 80,
       width: columnWidthModel.year ?? COLUMN_DEFAULT_WIDTHS.year,
+      filterable: false,
       valueGetter: (_value, row) => row.year ?? '—',
     },
     {
@@ -490,6 +568,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.studio'),
       minWidth: 120,
       width: columnWidthModel.studioName ?? COLUMN_DEFAULT_WIDTHS.studioName,
+      filterable: false,
       valueGetter: (_value, row) => row.studioName ?? '—',
     },
     {
@@ -498,6 +577,7 @@ export default function VideosPage() {
       minWidth: 80,
       width: columnWidthModel.hasNfo ?? COLUMN_DEFAULT_WIDTHS.hasNfo,
       sortable: false,
+      filterOperators: booleanFilterOperators,
       renderCell: params => (
         <Chip label={params.row.hasNfo ? '✓' : '✗'} color={params.row.hasNfo ? 'success' : 'default'} size="small" />
       ),
@@ -508,6 +588,7 @@ export default function VideosPage() {
       minWidth: 80,
       width: columnWidthModel.hasPoster ?? COLUMN_DEFAULT_WIDTHS.hasPoster,
       sortable: false,
+      filterOperators: booleanFilterOperators,
       renderCell: params => (
         <Chip label={params.row.hasPoster ? '✓' : '✗'} color={params.row.hasPoster ? 'success' : 'default'} size="small" />
       ),
@@ -518,6 +599,7 @@ export default function VideosPage() {
       minWidth: 90,
       width: columnWidthModel.hasFanart ?? COLUMN_DEFAULT_WIDTHS.hasFanart,
       sortable: false,
+      filterOperators: booleanFilterOperators,
       renderCell: params => (
         <Chip label={params.row.hasFanart ? '✓' : '✗'} color={params.row.hasFanart ? 'success' : 'default'} size="small" />
       ),
@@ -527,12 +609,14 @@ export default function VideosPage() {
       headerName: t('videos.columns.path'),
       minWidth: 220,
       width: columnWidthModel.filePath ?? COLUMN_DEFAULT_WIDTHS.filePath,
+      filterable: false,
     },
     {
       field: 'fileSizeBytes',
       headerName: t('videos.columns.size'),
       minWidth: 110,
       width: columnWidthModel.fileSizeBytes ?? COLUMN_DEFAULT_WIDTHS.fileSizeBytes,
+      filterable: false,
       valueGetter: (_value, row) => formatBytes(row.fileSizeBytes),
     },
     {
@@ -540,6 +624,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.originalTitle'),
       minWidth: 140,
       width: columnWidthModel.originalTitle ?? COLUMN_DEFAULT_WIDTHS.originalTitle,
+      filterable: false,
       valueGetter: (_value, row) => row.originalTitle ?? '—',
     },
     {
@@ -547,6 +632,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.plot'),
       minWidth: 160,
       width: columnWidthModel.plot ?? COLUMN_DEFAULT_WIDTHS.plot,
+      filterable: false,
       valueGetter: (_value, row) => row.plot ?? '—',
     },
     {
@@ -554,6 +640,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.scannedAt'),
       minWidth: 160,
       width: columnWidthModel.scannedAt ?? COLUMN_DEFAULT_WIDTHS.scannedAt,
+      filterable: false,
       valueGetter: (_value, row) => new Date(row.scannedAt).toLocaleString(),
     },
     {
@@ -561,6 +648,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.fileModifiedAt'),
       minWidth: 160,
       width: columnWidthModel.fileModifiedAt ?? COLUMN_DEFAULT_WIDTHS.fileModifiedAt,
+      filterable: false,
       valueGetter: (_value, row) => row.fileModifiedAt ? new Date(row.fileModifiedAt).toLocaleString() : '—',
     },
     {
@@ -568,6 +656,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.sortTitle'),
       minWidth: 140,
       width: columnWidthModel.sortTitle ?? COLUMN_DEFAULT_WIDTHS.sortTitle,
+      filterable: false,
       valueGetter: (_value, row) => row.sortTitle ?? '—',
     },
     {
@@ -575,6 +664,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.outline'),
       minWidth: 160,
       width: columnWidthModel.outline ?? COLUMN_DEFAULT_WIDTHS.outline,
+      filterable: false,
       valueGetter: (_value, row) => row.outline ?? '—',
     },
     {
@@ -582,6 +672,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.tagline'),
       minWidth: 140,
       width: columnWidthModel.tagline ?? COLUMN_DEFAULT_WIDTHS.tagline,
+      filterable: false,
       valueGetter: (_value, row) => row.tagline ?? '—',
     },
     {
@@ -589,6 +680,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.directors'),
       minWidth: 120,
       width: columnWidthModel.directors ?? COLUMN_DEFAULT_WIDTHS.directors,
+      filterable: false,
       valueGetter: (_value, row) => row.directors?.join(', ') ?? '—',
     },
     {
@@ -596,6 +688,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.genres'),
       minWidth: 120,
       width: columnWidthModel.genres ?? COLUMN_DEFAULT_WIDTHS.genres,
+      filterable: false,
       valueGetter: (_value, row) => row.genres?.join(', ') ?? '—',
     },
     {
@@ -603,6 +696,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.tags'),
       minWidth: 120,
       width: columnWidthModel.tags ?? COLUMN_DEFAULT_WIDTHS.tags,
+      filterable: false,
       valueGetter: (_value, row) => row.tags?.join(', ') ?? '—',
     },
     {
@@ -610,6 +704,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.runtime'),
       minWidth: 80,
       width: columnWidthModel.runtime ?? COLUMN_DEFAULT_WIDTHS.runtime,
+      filterable: false,
       valueGetter: (_value, row) => row.runtime != null ? `${row.runtime} min` : '—',
     },
     {
@@ -617,6 +712,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.mpaa'),
       minWidth: 80,
       width: columnWidthModel.mpaa ?? COLUMN_DEFAULT_WIDTHS.mpaa,
+      filterable: false,
       valueGetter: (_value, row) => row.mpaa ?? '—',
     },
     {
@@ -624,6 +720,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.premiered'),
       minWidth: 120,
       width: columnWidthModel.premiered ?? COLUMN_DEFAULT_WIDTHS.premiered,
+      filterable: false,
       valueGetter: (_value, row) => row.premiered ?? '—',
     },
     {
@@ -631,6 +728,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.userRating'),
       minWidth: 100,
       width: columnWidthModel.userRating ?? COLUMN_DEFAULT_WIDTHS.userRating,
+      filterable: false,
       valueGetter: (_value, row) => row.userRating ?? '—',
     },
     {
@@ -638,6 +736,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.top250'),
       minWidth: 80,
       width: columnWidthModel.top250 ?? COLUMN_DEFAULT_WIDTHS.top250,
+      filterable: false,
       valueGetter: (_value, row) => row.top250 ?? '—',
     },
     {
@@ -645,6 +744,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.credits'),
       minWidth: 120,
       width: columnWidthModel.credits ?? COLUMN_DEFAULT_WIDTHS.credits,
+      filterable: false,
       valueGetter: (_value, row) => row.credits?.join(', ') ?? '—',
     },
     {
@@ -652,6 +752,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.countries'),
       minWidth: 120,
       width: columnWidthModel.countries ?? COLUMN_DEFAULT_WIDTHS.countries,
+      filterable: false,
       valueGetter: (_value, row) => row.countries?.join(', ') ?? '—',
     },
     {
@@ -659,6 +760,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.setName'),
       minWidth: 120,
       width: columnWidthModel.setName ?? COLUMN_DEFAULT_WIDTHS.setName,
+      filterable: false,
       valueGetter: (_value, row) => row.setName ?? '—',
     },
     {
@@ -666,6 +768,7 @@ export default function VideosPage() {
       headerName: t('videos.columns.dateAdded'),
       minWidth: 120,
       width: columnWidthModel.dateAdded ?? COLUMN_DEFAULT_WIDTHS.dateAdded,
+      filterable: false,
       valueGetter: (_value, row) => row.dateAdded ?? '—',
     },
   ];
@@ -798,6 +901,7 @@ export default function VideosPage() {
             },
           })}
               getRowId={row => row.id}
+              slots={dataGridSlots}
               columnVisibilityModel={columnVisibilityModel}
               onColumnVisibilityModelChange={setColumnVisibilityModel}
               onColumnWidthChange={params => {
@@ -814,6 +918,9 @@ export default function VideosPage() {
               sortingMode="server"
               sortModel={sortModel}
               onSortModelChange={handleSortModelChange}
+              filterMode="server"
+              filterModel={filterModel}
+              onFilterModelChange={handleFilterModelChange}
               localeText={{
                 noRowsLabel: t('videos.empty'),
               }}

@@ -11,6 +11,7 @@ public class VideosController(IVideoService videoService) : ControllerBase
     public async Task<IActionResult> GetAll(
         [FromQuery] bool? has_nfo,
         [FromQuery] bool? has_poster,
+        [FromQuery] bool? has_fanart,
         [FromQuery] int? library_id,
         [FromQuery] int? studio_id,
         [FromQuery] string? search,
@@ -20,7 +21,7 @@ public class VideosController(IVideoService videoService) : ControllerBase
         [FromQuery] bool sort_desc = false,
         CancellationToken ct = default)
     {
-        var filter = new VideoFileFilter(has_nfo, has_poster, library_id, studio_id, search, sort_by, sort_desc);
+        var filter = new VideoFileFilter(has_nfo, has_poster, has_fanart, library_id, studio_id, search, sort_by, sort_desc);
         var result = await videoService.GetAllAsync(filter, page, page_size, ct);
         return result.Success
             ? Ok(new { data = result.Data, success = true })

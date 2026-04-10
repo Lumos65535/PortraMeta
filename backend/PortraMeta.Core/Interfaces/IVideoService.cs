@@ -49,6 +49,7 @@ public record VideoFileDto(
 public record VideoFileFilter(
     bool? HasNfo = null,
     bool? HasPoster = null,
+    bool? HasFanart = null,
     int? LibraryId = null,
     int? StudioId = null,
     string? Search = null,
