@@ -21,6 +21,9 @@ public class VideosController(IVideoService videoService) : ControllerBase
         [FromQuery] bool sort_desc = false,
         CancellationToken ct = default)
     {
+        page = Math.Max(1, page);
+        page_size = Math.Clamp(page_size, 1, 500);
+
         var filter = new VideoFileFilter(has_nfo, has_poster, has_fanart, library_id, studio_id, search, sort_by, sort_desc);
         var result = await videoService.GetAllAsync(filter, page, page_size, ct);
         return result.Success
@@ -28,11 +31,15 @@ public class VideosController(IVideoService videoService) : ControllerBase
             : BadRequest(new { error = result.Error, success = false });
     }
 
+    private const int MaxBatchSize = 500;
+
     [HttpPut("batch")]
     public async Task<IActionResult> BatchUpdate([FromBody] BatchUpdateVideoRequest request, CancellationToken ct)
     {
         if (request.Ids.Length == 0)
             return BadRequest(new { error = "No IDs provided", success = false });
+        if (request.Ids.Length > MaxBatchSize)
+            return BadRequest(new { error = $"Batch size exceeds maximum of {MaxBatchSize}", success = false });
 
         var result = await videoService.BatchUpdateAsync(request, ct);
         return result.Success
@@ -45,6 +52,8 @@ public class VideosController(IVideoService videoService) : ControllerBase
     {
         if (request.Ids.Length == 0)
             return BadRequest(new { error = "No IDs provided", success = false });
+        if (request.Ids.Length > MaxBatchSize)
+            return BadRequest(new { error = $"Batch size exceeds maximum of {MaxBatchSize}", success = false });
 
         var result = await videoService.BatchDeleteAsync(request, ct);
         return result.Success

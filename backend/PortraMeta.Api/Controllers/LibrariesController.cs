@@ -52,6 +52,13 @@ public class LibrariesController(ILibraryService libraryService) : ControllerBas
             : BadRequest(new { error = result.Error, success = false });
     }
 
+    [HttpGet("{id:int}/scan-status")]
+    public IActionResult GetScanStatus(int id)
+    {
+        var progress = libraryService.GetScanProgress(id);
+        return Ok(new { data = progress, success = true });
+    }
+
     [HttpGet("{id:int}/subdirectories")]
     public async Task<IActionResult> GetSubdirectories(int id, CancellationToken ct)
     {

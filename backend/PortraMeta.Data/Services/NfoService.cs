@@ -1,3 +1,4 @@
+using System.Xml;
 using System.Xml.Linq;
 using PortraMeta.Core.Interfaces;
 
@@ -24,7 +25,9 @@ public class NfoService : INfoService
             try
             {
                 var existing = await File.ReadAllTextAsync(nfoPath, ct);
-                var existingDoc = XDocument.Parse(existing);
+                var xmlSettings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit };
+                using var xmlReader = XmlReader.Create(new StringReader(existing), xmlSettings);
+                var existingDoc = XDocument.Load(xmlReader);
                 root = existingDoc.Root ?? new XElement("movie");
                 if (root.Name.LocalName != "movie")
                     root = new XElement("movie");
@@ -154,7 +157,20 @@ public class NfoService : INfoService
             root
         );
 
-        await using var stream = File.Open(nfoPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await doc.SaveAsync(stream, SaveOptions.None, ct);
+        // Atomic write: write to temp file first, then rename to avoid data loss on crash
+        var tmpPath = nfoPath + ".tmp";
+        try
+        {
+            await using (var stream = File.Open(tmpPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await doc.SaveAsync(stream, SaveOptions.None, ct);
+            }
+            File.Move(tmpPath, nfoPath, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tmpPath); } catch { /* best-effort cleanup */ }
+            throw;
+        }
     }
 }

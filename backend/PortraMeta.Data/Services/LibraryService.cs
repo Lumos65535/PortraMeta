@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,13 @@ public class LibraryService(
     INfoParser nfoParser,
     ILogger<LibraryService> logger) : ILibraryService
 {
+    // Per-library scan lock to prevent concurrent scans of the same library
+    private static readonly ConcurrentDictionary<int, SemaphoreSlim> ScanLocks = new();
+    private static readonly ConcurrentDictionary<int, ScanProgressDto> ScanProgress = new();
+
+    public ScanProgressDto? GetScanProgress(int id) =>
+        ScanProgress.TryGetValue(id, out var progress) ? progress : null;
+
     public async Task<Result<IReadOnlyList<LibraryDto>>> GetAllAsync(CancellationToken ct = default)
     {
         var libs = await db.Libraries
@@ -117,7 +125,13 @@ public class LibraryService(
         if (!Directory.Exists(library.Path))
             return Result<ScanResultDto>.Fail($"Library path not found: {library.Path}");
 
+        var scanLock = ScanLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        if (!await scanLock.WaitAsync(0, ct))
+            return Result<ScanResultDto>.Fail("A scan is already in progress for this library");
+
         logger.LogInformation("Scan started: library {Id} ({Name}) at {Path}", id, library.Name, library.Path);
+        var scanStartedAt = DateTime.UtcNow;
+        ScanProgress[id] = new ScanProgressDto("enumerating", 0, 0, scanStartedAt, true);
 
         try
         {
@@ -128,6 +142,7 @@ public class LibraryService(
                 .ToHashSetAsync(ct);
 
             var videoFiles = (await scanner.FindVideoFilesRecursiveAsync(library.Path, excludedPaths, ct)).ToList();
+            ScanProgress[id] = new ScanProgressDto("processing", 0, videoFiles.Count, scanStartedAt, true);
 
             // Remove any DB entries whose file path falls under an excluded directory
             if (excludedPaths.Count > 0)
@@ -162,10 +177,14 @@ public class LibraryService(
             int updated = 0;
             int skipped = 0;
             int nfoParsed = 0;
+            int processed = 0;
 
             foreach (var file in videoFiles)
             {
                 ct.ThrowIfCancellationRequested();
+                processed++;
+                if (processed % 50 == 0)
+                    ScanProgress[id] = new ScanProgressDto("processing", processed, videoFiles.Count, scanStartedAt, true);
 
                 var fullPath = Path.GetFullPath(file.FullName);
                 bool hasNfo = scanner.HasNfoFile(fullPath);
@@ -174,8 +193,15 @@ public class LibraryService(
 
                 if (existingFiles.TryGetValue(fullPath, out var existing))
                 {
-                    // Re-check file flags; parse NFO if it was missing or metadata not yet populated
-                    bool needsNfoParse = hasNfo && (!existing.HasNfo || existing.Title is null);
+                    // Incremental scan: re-parse NFO if it's new, metadata was missing,
+                    // or the NFO file has been modified since last parse
+                    var nfoPath = FileSystemScanner.NfoPath(fullPath);
+                    bool nfoModifiedSinceLastParse = hasNfo
+                        && existing.NfoUpdatedAt.HasValue
+                        && File.Exists(nfoPath)
+                        && File.GetLastWriteTimeUtc(nfoPath) > existing.NfoUpdatedAt.Value;
+
+                    bool needsNfoParse = hasNfo && (!existing.HasNfo || existing.Title is null || nfoModifiedSinceLastParse);
                     bool flagChanged = existing.HasNfo != hasNfo
                         || existing.HasPoster != hasPoster
                         || existing.HasFanart != hasFanart;
@@ -209,9 +235,12 @@ public class LibraryService(
                                 existing.Studio = studio;
                             }
 
-                            // Add actors only if none exist yet (avoid duplicates on rescan)
-                            if (!existing.VideoActors.Any())
+                            // Sync actors from NFO — clear and re-populate to reflect external edits
+                            if (nfoData.Actors.Count > 0 || existing.VideoActors.Any())
                             {
+                                db.VideoActors.RemoveRange(existing.VideoActors);
+                                existing.VideoActors.Clear();
+
                                 foreach (var nfoActor in nfoData.Actors)
                                 {
                                     if (!actorCache.TryGetValue(nfoActor.Name, out var actor))
@@ -298,14 +327,31 @@ public class LibraryService(
                 newEntities.Add(videoFile);
             }
 
+            // Detect deleted files: DB entries whose files no longer exist on disk
+            var scannedPaths = videoFiles.Select(f => Path.GetFullPath(f.FullName)).ToHashSet();
+            var deletedEntries = existingFiles
+                .Where(kvp => !scannedPaths.Contains(kvp.Key))
+                .Select(kvp => kvp.Value)
+                .ToList();
+
+            if (deletedEntries.Count > 0)
+            {
+                db.VideoFiles.RemoveRange(deletedEntries);
+                logger.LogInformation("Removed {Count} video(s) whose files no longer exist on disk", deletedEntries.Count);
+            }
+
             if (newEntities.Count > 0)
                 await db.VideoFiles.AddRangeAsync(newEntities, ct);
 
+            ScanProgress[id] = new ScanProgressDto("saving", processed, videoFiles.Count, scanStartedAt, true);
             await db.SaveChangesAsync(ct);
 
-            var scanResult = new ScanResultDto(videoFiles.Count, newEntities.Count, updated, skipped, nfoParsed, excludedPaths.Count);
-            logger.LogInformation("Scan completed: library {Id} — total {Total}, added {Added}, updated {Updated}, skipped {Skipped}, NFO parsed {NfoParsed}, excluded {Excluded} folder(s)",
-                id, scanResult.Total, scanResult.Added, scanResult.Updated, scanResult.Skipped, scanResult.NfoParsed, scanResult.ExcludedFolders);
+            // Clean up orphaned studios and actors not referenced by any video
+            await CleanupOrphanedEntitiesAsync(ct);
+
+            var scanResult = new ScanResultDto(videoFiles.Count, newEntities.Count, updated, skipped, nfoParsed, excludedPaths.Count, deletedEntries.Count);
+            logger.LogInformation("Scan completed: library {Id} — total {Total}, added {Added}, updated {Updated}, skipped {Skipped}, NFO parsed {NfoParsed}, excluded {Excluded} folder(s), removed {Removed}",
+                id, scanResult.Total, scanResult.Added, scanResult.Updated, scanResult.Skipped, scanResult.NfoParsed, scanResult.ExcludedFolders, scanResult.Removed);
             return Result<ScanResultDto>.Ok(scanResult);
         }
         catch (OperationCanceledException)
@@ -316,7 +362,12 @@ public class LibraryService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Scan failed: library {Id}", id);
-            return Result<ScanResultDto>.Fail($"Scan failed: {ex.Message}");
+            return Result<ScanResultDto>.Fail("Scan failed due to an internal error");
+        }
+        finally
+        {
+            ScanProgress.TryRemove(id, out _);
+            scanLock.Release();
         }
     }
 
@@ -346,5 +397,31 @@ public class LibraryService(
         v.SetName = nfo.Set;
         v.DateAdded = nfo.DateAdded;
         v.Top250 = nfo.Top250;
+    }
+
+    private async Task CleanupOrphanedEntitiesAsync(CancellationToken ct)
+    {
+        var orphanedStudios = await db.Studios
+            .Where(s => !db.VideoFiles.Any(v => v.StudioId == s.Id))
+            .ToListAsync(ct);
+
+        var orphanedActors = await db.Actors
+            .Where(a => !db.VideoActors.Any(va => va.ActorId == a.Id))
+            .ToListAsync(ct);
+
+        if (orphanedStudios.Count > 0)
+        {
+            db.Studios.RemoveRange(orphanedStudios);
+            logger.LogInformation("Cleaned up {Count} orphaned studio(s)", orphanedStudios.Count);
+        }
+
+        if (orphanedActors.Count > 0)
+        {
+            db.Actors.RemoveRange(orphanedActors);
+            logger.LogInformation("Cleaned up {Count} orphaned actor(s)", orphanedActors.Count);
+        }
+
+        if (orphanedStudios.Count > 0 || orphanedActors.Count > 0)
+            await db.SaveChangesAsync(ct);
     }
 }

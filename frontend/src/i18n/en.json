@@ -194,7 +194,7 @@
     "addSuccess": "Library \"{{name}}\" added successfully",
     "addFailed": "Failed to add library",
     "deleteSuccess": "Library \"{{name}}\" deleted",
-    "scanSuccess": "Scanned {{total}} files: added {{added}}, updated {{updated}}, skipped {{skipped}}, NFO parsed {{nfoParsed}}",
+    "scanSuccess": "Scanned {{total}} files: added {{added}}, updated {{updated}}, skipped {{skipped}}, NFO parsed {{nfoParsed}}, removed {{removed}}",
     "scanFailed": "Scan failed",
     "columns": {
       "name": "Name",
