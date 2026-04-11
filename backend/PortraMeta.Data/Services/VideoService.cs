@@ -54,39 +54,82 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
         var total = await query.CountAsync(ct);
 
+        // Helper: for nullable columns, always push NULL values to the end regardless of sort direction.
+        // Ascending:  non-null first (A→Z), then nulls.
+        // Descending: non-null first (Z→A), then nulls.
         IQueryable<VideoFile> sorted = (filter.SortBy, filter.SortDesc) switch
         {
             ("title", false)          => query.OrderBy(v => v.Title ?? v.FileName),
             ("title", true)           => query.OrderByDescending(v => v.Title ?? v.FileName),
-            ("year", false)           => query.OrderBy(v => v.Year),
-            ("year", true)            => query.OrderByDescending(v => v.Year),
-            ("studioName", false)     => query.OrderBy(v => v.Studio != null ? v.Studio.Name : null),
-            ("studioName", true)      => query.OrderByDescending(v => v.Studio != null ? v.Studio.Name : null),
+            ("year", false)           => query.OrderBy(v => v.Year == null ? 1 : 0).ThenBy(v => v.Year),
+            ("year", true)            => query.OrderBy(v => v.Year == null ? 1 : 0).ThenByDescending(v => v.Year),
+            ("studioName", false)     => query.OrderBy(v => v.Studio == null ? 1 : 0).ThenBy(v => v.Studio!.Name),
+            ("studioName", true)      => query.OrderBy(v => v.Studio == null ? 1 : 0).ThenByDescending(v => v.Studio!.Name),
             ("fileSizeBytes", false)  => query.OrderBy(v => v.FileSizeBytes),
             ("fileSizeBytes", true)   => query.OrderByDescending(v => v.FileSizeBytes),
             ("scannedAt", false)      => query.OrderBy(v => v.ScannedAt),
             ("scannedAt", true)       => query.OrderByDescending(v => v.ScannedAt),
-            ("fileModifiedAt", false) => query.OrderBy(v => v.FileModifiedAt),
-            ("fileModifiedAt", true)  => query.OrderByDescending(v => v.FileModifiedAt),
-            ("originalTitle", false)  => query.OrderBy(v => v.OriginalTitle),
-            ("originalTitle", true)   => query.OrderByDescending(v => v.OriginalTitle),
+            ("fileModifiedAt", false) => query.OrderBy(v => v.FileModifiedAt == null ? 1 : 0).ThenBy(v => v.FileModifiedAt),
+            ("fileModifiedAt", true)  => query.OrderBy(v => v.FileModifiedAt == null ? 1 : 0).ThenByDescending(v => v.FileModifiedAt),
+            ("originalTitle", false)  => query.OrderBy(v => v.OriginalTitle == null ? 1 : 0).ThenBy(v => v.OriginalTitle),
+            ("originalTitle", true)   => query.OrderBy(v => v.OriginalTitle == null ? 1 : 0).ThenByDescending(v => v.OriginalTitle),
+            ("sortTitle", false)      => query.OrderBy(v => v.SortTitle == null ? 1 : 0).ThenBy(v => v.SortTitle),
+            ("sortTitle", true)       => query.OrderBy(v => v.SortTitle == null ? 1 : 0).ThenByDescending(v => v.SortTitle),
+            ("runtime", false)        => query.OrderBy(v => v.Runtime == null ? 1 : 0).ThenBy(v => v.Runtime),
+            ("runtime", true)         => query.OrderBy(v => v.Runtime == null ? 1 : 0).ThenByDescending(v => v.Runtime),
+            ("mpaa", false)           => query.OrderBy(v => v.Mpaa == null ? 1 : 0).ThenBy(v => v.Mpaa),
+            ("mpaa", true)            => query.OrderBy(v => v.Mpaa == null ? 1 : 0).ThenByDescending(v => v.Mpaa),
+            ("premiered", false)      => query.OrderBy(v => v.Premiered == null ? 1 : 0).ThenBy(v => v.Premiered),
+            ("premiered", true)       => query.OrderBy(v => v.Premiered == null ? 1 : 0).ThenByDescending(v => v.Premiered),
+            ("userRating", false)     => query.OrderBy(v => v.UserRating == null ? 1 : 0).ThenBy(v => v.UserRating),
+            ("userRating", true)      => query.OrderBy(v => v.UserRating == null ? 1 : 0).ThenByDescending(v => v.UserRating),
+            ("top250", false)         => query.OrderBy(v => v.Top250 == null ? 1 : 0).ThenBy(v => v.Top250),
+            ("top250", true)          => query.OrderBy(v => v.Top250 == null ? 1 : 0).ThenByDescending(v => v.Top250),
+            ("outline", false)        => query.OrderBy(v => v.Outline == null ? 1 : 0).ThenBy(v => v.Outline),
+            ("outline", true)         => query.OrderBy(v => v.Outline == null ? 1 : 0).ThenByDescending(v => v.Outline),
+            ("tagline", false)        => query.OrderBy(v => v.Tagline == null ? 1 : 0).ThenBy(v => v.Tagline),
+            ("tagline", true)         => query.OrderBy(v => v.Tagline == null ? 1 : 0).ThenByDescending(v => v.Tagline),
+            ("setName", false)        => query.OrderBy(v => v.SetName == null ? 1 : 0).ThenBy(v => v.SetName),
+            ("setName", true)         => query.OrderBy(v => v.SetName == null ? 1 : 0).ThenByDescending(v => v.SetName),
+            ("dateAdded", false)      => query.OrderBy(v => v.DateAdded == null ? 1 : 0).ThenBy(v => v.DateAdded),
+            ("dateAdded", true)       => query.OrderBy(v => v.DateAdded == null ? 1 : 0).ThenByDescending(v => v.DateAdded),
             ("fileName", true)        => query.OrderByDescending(v => v.FileName),
             _                         => query.OrderBy(v => v.FileName),
         };
 
-        var items = await sorted
+        var rawItems = await sorted
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(v => new VideoFileDto(
+            .Select(v => new {
                 v.Id, v.LibraryId, v.FileName, v.FilePath, v.FileSizeBytes,
                 v.HasNfo, v.HasPoster, v.HasFanart, v.Title, v.OriginalTitle, v.Year, v.Plot,
-                v.Studio != null ? v.Studio.Name : null, v.ScannedAt,
-                null, v.FileModifiedAt,
-                null, null, v.Runtime, v.Mpaa, v.Premiered,
-                null, v.UserRating, null, null, v.SortTitle,
-                null, null, null, null,
-                null, null, null))
+                StudioName = v.Studio != null ? v.Studio.Name : null,
+                v.ScannedAt, v.FileModifiedAt,
+                v.DirectorsJson, v.GenresJson, v.Runtime, v.Mpaa, v.Premiered,
+                v.RatingsJson, v.UserRating, v.UniqueIdsJson, v.TagsJson, v.SortTitle,
+                v.Outline, v.Tagline, v.CreditsJson, v.CountriesJson,
+                v.SetName, v.DateAdded, v.Top250
+            })
             .ToListAsync(ct);
+
+        var items = rawItems.Select(v => new VideoFileDto(
+            v.Id, v.LibraryId, v.FileName, v.FilePath, v.FileSizeBytes,
+            v.HasNfo, v.HasPoster, v.HasFanart, v.Title, v.OriginalTitle, v.Year, v.Plot,
+            v.StudioName, v.ScannedAt,
+            null, v.FileModifiedAt,
+            Directors: DeserializeList(v.DirectorsJson),
+            Genres: DeserializeList(v.GenresJson),
+            Runtime: v.Runtime, Mpaa: v.Mpaa, Premiered: v.Premiered,
+            Ratings: DeserializeJson<List<RatingDto>>(v.RatingsJson),
+            UserRating: v.UserRating,
+            UniqueIds: DeserializeJson<Dictionary<string, string>>(v.UniqueIdsJson),
+            Tags: DeserializeList(v.TagsJson),
+            SortTitle: v.SortTitle,
+            Outline: v.Outline, Tagline: v.Tagline,
+            Credits: DeserializeList(v.CreditsJson),
+            Countries: DeserializeList(v.CountriesJson),
+            SetName: v.SetName, DateAdded: v.DateAdded, Top250: v.Top250
+        )).ToList();
 
         logger.LogDebug("GetAll videos: page={Page}, pageSize={PageSize}, total={Total}", page, pageSize, total);
         return Result<PagedResult<VideoFileDto>>.Ok(new PagedResult<VideoFileDto>
