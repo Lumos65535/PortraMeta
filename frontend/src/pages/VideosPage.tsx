@@ -2,12 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
-  DialogTitle, Divider, FormControlLabel, Grid, IconButton, Menu, MenuItem, Paper, Radio, RadioGroup,
+  DialogTitle, Divider, FormControlLabel, Grid, IconButton, ListItemText, Menu, MenuItem, Radio, RadioGroup,
   Select, TextField, Typography,
 } from '@mui/material';
 import {
   Trash2, Pencil, MoreVertical, ArrowUp, ArrowDown,
-  EyeOff, Columns3, X, SlidersHorizontal,
+  EyeOff, Columns3, X, Filter, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -156,24 +156,37 @@ function BooleanFilterMenuItem(props: GridColumnMenuItemProps) {
   );
 }
 
-function readGridSettings(): {
+interface GridSettings {
   visibilityModel: GridColumnVisibilityModel;
   widthModel: Record<string, number>;
   sortModel: GridSortModel;
   page: number;
-} {
+  search: string;
+  advancedFilterOpen: boolean;
+  filterStudio: string[];
+  filterSetName: string[];
+  filterYearFrom: string;
+  filterYearTo: string;
+}
+
+function readGridSettings(): GridSettings {
+  const defaults: GridSettings = {
+    visibilityModel: DEFAULT_VISIBILITY,
+    widthModel: {},
+    sortModel: [],
+    page: 1,
+    search: '',
+    advancedFilterOpen: false,
+    filterStudio: [],
+    filterSetName: [],
+    filterYearFrom: '',
+    filterYearTo: '',
+  };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return { visibilityModel: DEFAULT_VISIBILITY, widthModel: {}, sortModel: [], page: 1 };
-    }
+    if (!raw) return defaults;
 
-    const parsed = JSON.parse(raw) as {
-      visibilityModel?: GridColumnVisibilityModel;
-      widthModel?: Record<string, number>;
-      sortModel?: GridSortModel;
-      page?: number;
-    };
+    const parsed = JSON.parse(raw);
 
     return {
       visibilityModel: {
@@ -183,10 +196,37 @@ function readGridSettings(): {
       widthModel: parsed.widthModel ?? {},
       sortModel: parsed.sortModel ?? [],
       page: parsed.page ?? 1,
+      search: parsed.search ?? '',
+      advancedFilterOpen: parsed.advancedFilterOpen ?? false,
+      filterStudio: parsed.filterStudio ?? [],
+      filterSetName: parsed.filterSetName ?? [],
+      filterYearFrom: parsed.filterYearFrom ?? '',
+      filterYearTo: parsed.filterYearTo ?? '',
     };
   } catch {
-    return { visibilityModel: DEFAULT_VISIBILITY, widthModel: {}, sortModel: [], page: 1 };
+    return defaults;
   }
+}
+
+function buildMultiSelectFilter(field: string, values: string[]): AdvancedFilterItem | null {
+  if (values.length === 0) return null;
+  const named = values.filter(v => v !== EMPTY_MARKER);
+  if (named.length === 0) return { field, op: 'isempty', value: '' };
+  if (named.length === 1 && named.length === values.length) return { field, op: 'equals', value: named[0] };
+  return { field, op: 'in', value: named.join('|') };
+}
+
+function buildAdvancedFiltersStatic(
+  studio: string[], set: string[], yearFrom: string, yearTo: string,
+): AdvancedFilterItem[] {
+  const items: AdvancedFilterItem[] = [];
+  const studioFilter = buildMultiSelectFilter('studioName', studio);
+  if (studioFilter) items.push(studioFilter);
+  const setFilter = buildMultiSelectFilter('setName', set);
+  if (setFilter) items.push(setFilter);
+  if (yearFrom.trim()) items.push({ field: 'year', op: 'gte', value: yearFrom.trim() });
+  if (yearTo.trim()) items.push({ field: 'year', op: 'lte', value: yearTo.trim() });
+  return items;
 }
 
 // ── Batch Edit Dialog ─────────────────────────────────────────────────────────
@@ -384,15 +424,72 @@ function DeleteConfirmDialog({ open, count, onClose, onConfirm }: DeleteConfirmD
 // ── Advanced Filter ──────────────────────────────────────────────────────────
 
 const EMPTY_MARKER = '__empty__';
+const CLEAR_MARKER = '__clear__';
+
+function MultiSelectFilter({ label, value, options, emptyLabel, placeholder, clearLabel, onChange }: {
+  label: string;
+  value: string[];
+  options: string[];
+  emptyLabel: string;
+  placeholder: string;
+  clearLabel: string;
+  onChange: (value: string[]) => void;
+}) {
+  const getLabel = (v: string) => v === EMPTY_MARKER ? emptyLabel : v;
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+        {label}:
+      </Typography>
+      <Select
+        multiple
+        value={value}
+        onChange={e => {
+          const v = e.target.value;
+          const values = typeof v === 'string' ? v.split(',') : v;
+          if (values.includes(CLEAR_MARKER)) { onChange([]); return; }
+          onChange(values);
+        }}
+        size="small"
+        displayEmpty
+        sx={{ minWidth: 160, maxWidth: 360 }}
+        renderValue={(selected) =>
+          selected.length === 0
+            ? <Typography variant="body2" color="text.disabled">{placeholder}</Typography>
+            : (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {selected.map(v => (
+                  <Chip key={v} label={getLabel(v)} size="small" />
+                ))}
+              </Box>
+            )
+        }
+      >
+        {value.length > 0 && [
+          <MenuItem key="__clear__" value={CLEAR_MARKER}>
+            <ListItemText primary={clearLabel} sx={{ color: 'error.main' }} />
+          </MenuItem>,
+          <Divider key="__clear_div__" />,
+        ]}
+        <MenuItem value={EMPTY_MARKER}>{emptyLabel}</MenuItem>
+        <Divider />
+        {options.map(s => (
+          <MenuItem key={s} value={s}>{s}</MenuItem>
+        ))}
+      </Select>
+    </Box>
+  );
+}
 
 interface AdvancedFilterPanelProps {
   open: boolean;
-  studio: string | null;
-  setName: string | null;
+  studio: string[];
+  setName: string[];
   yearFrom: string;
   yearTo: string;
-  onStudioChange: (value: string | null) => void;
-  onSetNameChange: (value: string | null) => void;
+  onStudioChange: (value: string[]) => void;
+  onSetNameChange: (value: string[]) => void;
   onYearFromChange: (value: string) => void;
   onYearToChange: (value: string) => void;
   onClear: () => void;
@@ -411,94 +508,74 @@ function AdvancedFilterPanel({
   if (!open) return null;
 
   return (
-    <Paper variant="outlined" sx={{ p: 2, mb: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        <Typography variant="subtitle2">{t('videos.advancedFilter.title')}</Typography>
-        <Box sx={{ flex: 1 }} />
-        {activeCount > 0 && (
+    <Box sx={{ mt: 1.5, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <MultiSelectFilter
+        label={t('videos.advancedFilter.studioLabel')}
+        value={studio}
+        options={studioOptions}
+        emptyLabel={t('videos.advancedFilter.noStudio')}
+        placeholder={t('videos.advancedFilter.placeholder')}
+        clearLabel={t('videos.advancedFilter.clearField')}
+        onChange={onStudioChange}
+      />
+      <MultiSelectFilter
+        label={t('videos.advancedFilter.setNameLabel')}
+        value={setName}
+        options={setNameOptions}
+        emptyLabel={t('videos.advancedFilter.noSetName')}
+        placeholder={t('videos.advancedFilter.placeholder')}
+        clearLabel={t('videos.advancedFilter.clearField')}
+        onChange={onSetNameChange}
+      />
+
+      {/* Year Range */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+          {t('videos.advancedFilter.yearRangeLabel')}:
+        </Typography>
+        <TextField
+          value={yearFrom}
+          onChange={e => {
+            const v = e.target.value;
+            if (v === '' || /^\d{0,4}$/.test(v)) onYearFromChange(v);
+          }}
+          size="small"
+          placeholder={t('videos.advancedFilter.yearFrom')}
+          sx={{
+            width: 110,
+            '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+            '& input[type=number]': { MozAppearance: 'textfield' },
+          }}
+          slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+        />
+        <Typography variant="body2" color="text.secondary">—</Typography>
+        <TextField
+          value={yearTo}
+          onChange={e => {
+            const v = e.target.value;
+            if (v === '' || /^\d{0,4}$/.test(v)) onYearToChange(v);
+          }}
+          size="small"
+          placeholder={t('videos.advancedFilter.yearTo')}
+          sx={{
+            width: 110,
+            '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+            '& input[type=number]': { MozAppearance: 'textfield' },
+          }}
+          slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+        />
+      </Box>
+
+      {/* Active count + Clear */}
+      {activeCount > 0 && (
+        <>
           <Chip label={t('videos.advancedFilter.activeCount', { count: activeCount })} size="small" color="primary" />
-        )}
-        <Button size="small" onClick={onClear} disabled={activeCount === 0}>
-          {t('videos.advancedFilter.clear')}
-        </Button>
-      </Box>
-
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-        {/* Studio */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-            {t('videos.advancedFilter.studioLabel')}:
-          </Typography>
-          <Select
-            value={studio ?? ''}
-            onChange={e => {
-              const v = e.target.value;
-              onStudioChange(v === '' ? null : v);
-            }}
-            size="small"
-            displayEmpty
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">{t('videos.advancedFilter.placeholder')}</MenuItem>
-            <MenuItem value={EMPTY_MARKER}>{t('videos.advancedFilter.noStudio')}</MenuItem>
-            <Divider />
-            {studioOptions.map(s => (
-              <MenuItem key={s} value={s}>{s}</MenuItem>
-            ))}
-          </Select>
-        </Box>
-
-        {/* Collection / SetName */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-            {t('videos.advancedFilter.setNameLabel')}:
-          </Typography>
-          <Select
-            value={setName ?? ''}
-            onChange={e => {
-              const v = e.target.value;
-              onSetNameChange(v === '' ? null : v);
-            }}
-            size="small"
-            displayEmpty
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">{t('videos.advancedFilter.placeholder')}</MenuItem>
-            <MenuItem value={EMPTY_MARKER}>{t('videos.advancedFilter.noSetName')}</MenuItem>
-            <Divider />
-            {setNameOptions.map(s => (
-              <MenuItem key={s} value={s}>{s}</MenuItem>
-            ))}
-          </Select>
-        </Box>
-
-        {/* Year Range */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-            {t('videos.advancedFilter.yearRangeLabel')}:
-          </Typography>
-          <TextField
-            value={yearFrom}
-            onChange={e => onYearFromChange(e.target.value)}
-            size="small"
-            type="number"
-            placeholder={t('videos.advancedFilter.yearFrom')}
-            sx={{ width: 110 }}
-            slotProps={{ htmlInput: { min: 1900, max: 2099 } }}
-          />
-          <Typography variant="body2" color="text.secondary">—</Typography>
-          <TextField
-            value={yearTo}
-            onChange={e => onYearToChange(e.target.value)}
-            size="small"
-            type="number"
-            placeholder={t('videos.advancedFilter.yearTo')}
-            sx={{ width: 110 }}
-            slotProps={{ htmlInput: { min: 1900, max: 2099 } }}
-          />
-        </Box>
-      </Box>
-    </Paper>
+          <Button size="small" onClick={onClear}>
+            {t('videos.advancedFilter.clear')}
+          </Button>
+        </>
+      )}
+    </Box>
   );
 }
 
@@ -508,10 +585,11 @@ export default function VideosPage() {
   const notify = useNotify();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [savedSettings] = useState(() => readGridSettings());
   const [result, setResult] = useState<PagedResult<VideoFile> | null>(null);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(() => readGridSettings().page);
-  const [sortModel, setSortModel] = useState<GridSortModel>(() => readGridSettings().sortModel);
+  const [search, setSearch] = useState(savedSettings.search);
+  const [page, setPage] = useState(savedSettings.page);
+  const [sortModel, setSortModel] = useState<GridSortModel>(savedSettings.sortModel);
   const [loading, setLoading] = useState(true);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const persistRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -522,9 +600,9 @@ export default function VideosPage() {
   const fileManagementEnabled = localStorage.getItem(FILE_MGMT_KEY) === 'true';
 
   const [columnVisibilityModel, setColumnVisibilityModel] =
-    useState<GridColumnVisibilityModel>(() => readGridSettings().visibilityModel);
+    useState<GridColumnVisibilityModel>(savedSettings.visibilityModel);
   const [columnWidthModel, setColumnWidthModel] =
-    useState<Record<string, number>>(() => readGridSettings().widthModel);
+    useState<Record<string, number>>(savedSettings.widthModel);
 
   // Boolean quick-filter state (managed outside DataGrid because Community edition
   // only supports a single filterModel item).
@@ -532,13 +610,17 @@ export default function VideosPage() {
   const boolFiltersRef = useRef<BoolFilters>({});
 
   // Advanced filter state
-  const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
-  const [filterStudio, setFilterStudio] = useState<string | null>(null);
-  const [filterSetName, setFilterSetName] = useState<string | null>(null);
-  const [filterYearFrom, setFilterYearFrom] = useState('');
-  const [filterYearTo, setFilterYearTo] = useState('');
-  const [activeAdvancedFilters, setActiveAdvancedFilters] = useState<AdvancedFilterItem[]>([]);
-  const activeAdvancedFiltersRef = useRef<AdvancedFilterItem[]>([]);
+  const [advancedFilterOpen, setAdvancedFilterOpen] = useState(savedSettings.advancedFilterOpen);
+  const [filterStudio, setFilterStudio] = useState<string[]>(savedSettings.filterStudio);
+  const [filterSetName, setFilterSetName] = useState<string[]>(savedSettings.filterSetName);
+  const [filterYearFrom, setFilterYearFrom] = useState(savedSettings.filterYearFrom);
+  const [filterYearTo, setFilterYearTo] = useState(savedSettings.filterYearTo);
+  const initialAdvancedFilters = buildAdvancedFiltersStatic(
+    savedSettings.filterStudio, savedSettings.filterSetName,
+    savedSettings.filterYearFrom, savedSettings.filterYearTo,
+  );
+  const [activeAdvancedFilters, setActiveAdvancedFilters] = useState<AdvancedFilterItem[]>(initialAdvancedFilters);
+  const activeAdvancedFiltersRef = useRef<AdvancedFilterItem[]>(initialAdvancedFilters);
   const [filterStudioOptions, setFilterStudioOptions] = useState<string[]>([]);
   const [filterSetNameOptions, setFilterSetNameOptions] = useState<string[]>([]);
 
@@ -555,6 +637,12 @@ export default function VideosPage() {
           widthModel: columnWidthModel,
           sortModel,
           page,
+          search,
+          advancedFilterOpen,
+          filterStudio,
+          filterSetName,
+          filterYearFrom,
+          filterYearTo,
         }),
       );
     }, 200);
@@ -564,7 +652,7 @@ export default function VideosPage() {
         clearTimeout(persistRef.current);
       }
     };
-  }, [columnVisibilityModel, columnWidthModel, sortModel, page]);
+  }, [columnVisibilityModel, columnWidthModel, sortModel, page, search, advancedFilterOpen, filterStudio, filterSetName, filterYearFrom, filterYearTo]);
 
   const load = async (searchValue: string, pageNum: number, sort: GridSortModel) => {
     setLoading(true);
@@ -639,8 +727,8 @@ export default function VideosPage() {
     if (value) {
       setActiveAdvancedFilters([]);
       activeAdvancedFiltersRef.current = [];
-      setFilterStudio(null);
-      setFilterSetName(null);
+      setFilterStudio([]);
+      setFilterSetName([]);
       setFilterYearFrom('');
       setFilterYearTo('');
     }
@@ -648,33 +736,10 @@ export default function VideosPage() {
     load(search, 1, sortModel);
   }, [search, sortModel]);
 
-  const buildAdvancedFilters = (
-    studio: string | null, set: string | null, yearFrom: string, yearTo: string,
-  ): AdvancedFilterItem[] => {
-    const items: AdvancedFilterItem[] = [];
-    if (studio === EMPTY_MARKER) {
-      items.push({ field: 'studioName', op: 'isempty', value: '' });
-    } else if (studio) {
-      items.push({ field: 'studioName', op: 'equals', value: studio });
-    }
-    if (set === EMPTY_MARKER) {
-      items.push({ field: 'setName', op: 'isempty', value: '' });
-    } else if (set) {
-      items.push({ field: 'setName', op: 'equals', value: set });
-    }
-    if (yearFrom.trim()) {
-      items.push({ field: 'year', op: 'gte', value: yearFrom.trim() });
-    }
-    if (yearTo.trim()) {
-      items.push({ field: 'year', op: 'lte', value: yearTo.trim() });
-    }
-    return items;
-  };
-
   const applyAdvancedFilter = (
-    studio: string | null, set: string | null, yearFrom: string, yearTo: string,
+    studio: string[], set: string[], yearFrom: string, yearTo: string,
   ) => {
-    const filters = buildAdvancedFilters(studio, set, yearFrom, yearTo);
+    const filters = buildAdvancedFiltersStatic(studio, set, yearFrom, yearTo);
     setActiveAdvancedFilters(filters);
     activeAdvancedFiltersRef.current = filters;
     // Clear quick boolean filters when advanced filter is applied
@@ -686,11 +751,11 @@ export default function VideosPage() {
     load(search, 1, sortModel);
   };
 
-  const handleFilterStudioChange = (value: string | null) => {
+  const handleFilterStudioChange = (value: string[]) => {
     setFilterStudio(value);
     applyAdvancedFilter(value, filterSetName, filterYearFrom, filterYearTo);
   };
-  const handleFilterSetNameChange = (value: string | null) => {
+  const handleFilterSetNameChange = (value: string[]) => {
     setFilterSetName(value);
     applyAdvancedFilter(filterStudio, value, filterYearFrom, filterYearTo);
   };
@@ -704,8 +769,8 @@ export default function VideosPage() {
   };
 
   const handleAdvancedClear = () => {
-    setFilterStudio(null);
-    setFilterSetName(null);
+    setFilterStudio([]);
+    setFilterSetName([]);
     setFilterYearFrom('');
     setFilterYearTo('');
     setActiveAdvancedFilters([]);
@@ -1020,12 +1085,12 @@ export default function VideosPage() {
           mb: 1,
         }}
       >
+        {/* Row 1: Title + Batch buttons */}
         <Box
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: { xs: 'flex-start', md: 'center' },
-            flexWrap: 'wrap',
+            alignItems: 'center',
             gap: 1,
             width: '100%',
           }}
@@ -1033,49 +1098,54 @@ export default function VideosPage() {
           <Typography variant="h5">
             {result ? t('videos.titleWithCount', { count: result.total }) : t('videos.title')}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            {selectedIds.length > 0 && (
-              <>
+          {selectedIds.length > 0 && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Button
+                variant="contained"
+                startIcon={<Pencil size={18} />}
+                onClick={() => setBatchDialogOpen(true)}
+              >
+                {t('videos.batchEdit.button')}（{selectedIds.length}）
+              </Button>
+              {fileManagementEnabled && (
                 <Button
                   variant="contained"
-                  startIcon={<Pencil size={18} />}
-                  onClick={() => setBatchDialogOpen(true)}
+                  color="error"
+                  startIcon={<Trash2 size={18} />}
+                  onClick={() => setDeleteDialogOpen(true)}
                 >
-                  {t('videos.batchEdit.button')}（{selectedIds.length}）
+                  {t('videos.batchDelete.button')}（{selectedIds.length}）
                 </Button>
-                {fileManagementEnabled && (
-                  <Button
-                    variant="contained"
-                    color="error"
-                    startIcon={<Trash2 size={18} />}
-                    onClick={() => setDeleteDialogOpen(true)}
-                  >
-                    {t('videos.batchDelete.button')}（{selectedIds.length}）
-                  </Button>
-                )}
-              </>
-            )}
-            <IconButton
-              size="small"
-              onClick={() => setAdvancedFilterOpen(prev => !prev)}
-              color={activeAdvancedFilters.length > 0 ? 'primary' : 'default'}
-            >
-              <SlidersHorizontal size={18} />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={e => setFieldMenuAnchor(e.currentTarget)}
-            >
-              <Columns3 size={18} />
-            </IconButton>
-            <TextField
-              label={t('videos.search')}
-              size="small"
-              value={search}
-              onChange={e => handleSearchChange(e.target.value)}
-              sx={{ minWidth: 220 }}
-            />
-          </Box>
+              )}
+            </Box>
+          )}
+        </Box>
+
+        {/* Row 2: Search + Advanced Search toggle + Column customization */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+          <TextField
+            label={t('videos.search')}
+            size="small"
+            value={search}
+            onChange={e => handleSearchChange(e.target.value)}
+            sx={{ flex: 1 }}
+          />
+          <Button
+            variant="text"
+            startIcon={<Filter size={16} />}
+            endIcon={advancedFilterOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            onClick={() => setAdvancedFilterOpen(prev => !prev)}
+            color={activeAdvancedFilters.length > 0 ? 'primary' : 'inherit'}
+            sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+          >
+            {t('videos.advancedFilter.toggle')}
+          </Button>
+          <IconButton
+            size="small"
+            onClick={e => setFieldMenuAnchor(e.currentTarget)}
+          >
+            <Columns3 size={18} />
+          </IconButton>
         </Box>
 
         <AdvancedFilterPanel

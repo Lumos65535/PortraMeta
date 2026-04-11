@@ -64,7 +64,9 @@
       "yearTo": "To",
       "noStudio": "No Studio",
       "noSetName": "No Collection",
-      "placeholder": "Select"
+      "placeholder": "Select",
+      "toggle": "Advanced Search",
+      "clearField": "Clear selection"
     },
     "columns": {
       "filename": "Filename",

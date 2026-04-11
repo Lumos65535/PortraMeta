@@ -257,6 +257,7 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             "isnotempty" => Expression.AndAlso(
                 Expression.NotEqual(member, Expression.Constant(null, typeof(string))),
                 Expression.NotEqual(member, Expression.Constant(""))),
+            "in" => BuildInExpression(member, val),
             _ => MakeLikeCall(member, pattern)
         };
 
@@ -269,6 +270,18 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             nameof(DbFunctionsExtensions.Like),
             [typeof(DbFunctions), typeof(string), typeof(string)])!;
         return Expression.Call(likeMethod, Expression.Constant(EF.Functions), member, pattern);
+    }
+
+    private static Expression BuildInExpression(Expression member, string val)
+    {
+        var values = val.Split('|').Select(v => v.Trim()).ToArray();
+        Expression? result = null;
+        foreach (var v in values)
+        {
+            var eq = Expression.Equal(member, Expression.Constant(v));
+            result = result == null ? eq : Expression.OrElse(result, eq);
+        }
+        return result!;
     }
 
     private static Expression<Func<VideoFile, bool>>? NumericPredicate(

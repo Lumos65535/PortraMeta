@@ -64,7 +64,9 @@
       "yearTo": "截止年份",
       "noStudio": "无厂牌",
       "noSetName": "无合集",
-      "placeholder": "请选择"
+      "placeholder": "请选择",
+      "toggle": "高级搜索",
+      "clearField": "清除选择"
     },
     "columns": {
       "filename": "文件名",
