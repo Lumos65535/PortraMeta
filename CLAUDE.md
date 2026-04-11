@@ -246,39 +246,38 @@ Completed:
 18. ✅ Keyboard shortcuts for VideoDetailPage (navigation, edit, actor operations) with extensible ShortcutMap architecture
 
 Pending:
-19. Video list column filtering (see Column Filtering Plan below)
+19. ✅ Advanced search with specialized filter controls (Studio, Collection, Year Range) — see Advanced Search Plan below
 20. Settings page shortcut customization (see Keyboard Shortcuts section)
 21. Scraper interface stub `/api/scrapers` (not yet implemented)
 22. Tauri desktop client packaging (macOS / Windows)
 
-## Column Filtering Plan (Pending)
+## Advanced Search Plan
 
-Add per-column filtering to the video list DataGrid to let users narrow down results by field values.
+Specialized filter controls in the video list toolbar, replacing the generic row-builder. Filters apply immediately on selection and use the existing backend advanced filter infrastructure (`filters` JSON + `filter_logic` query params).
 
-### Boolean Columns (Custom Filter)
+### Current Implementation (Phase 1)
 
-The `hasNfo`, `hasPoster`, and `hasFanart` columns use Chip rendering (✓/✗) and require a custom filter:
+- **Studio**: dropdown populated from `GET /api/videos/filter-options` (distinct studio names from DB), includes "No Studio" option
+- **Collection (SetName)**: dropdown populated from same endpoint, includes "No Collection" option
+- **Year Range**: two number inputs (start year ~ end year)
+- **Search box**: existing full-text search (unchanged)
+- Boolean quick filters (NFO/Poster/Fanart) remain via column header menu
 
-- Filter type: dropdown with three options — All / Yes (✓) / No (✗)
-- These columns use `renderCell` (not plain text), so the built-in DataGrid string/number filters are not applicable
-- Implementation: define a custom `filterOperators` array on each boolean column using `getGridBooleanOperators()` or a manual `GridFilterOperator` with a custom `InputComponent` (Select with All/Yes/No)
-- Backend support: the existing API already accepts `has_nfo` and `has_poster` query parameters; `has_fanart` should be added if missing
+### Expansion Roadmap
 
-### Text and Numeric Columns (Built-in Filter)
+| Phase | Fields | Input Type | Data Source |
+|-------|--------|------------|-------------|
+| 1 (Done) | Studio, Collection, Year Range | Select dropdown, number range | DB distinct values |
+| 2 | Genres, Tags, Countries | Multi-select dropdown | DB distinct values (JSON array fields) |
+| 3 | Directors, Credits | Multi-select dropdown | DB distinct values (JSON array fields) |
+| 4 | Resolution, Codec | Fixed-value dropdown | Requires FileInfo extension (video metadata parsing) |
+| 5 | Custom filter builder | Generic row builder (field + operator + value) | Restore as "custom filter" for power users |
 
-All other columns (title, year, studioName, directors, genres, runtime, mpaa, etc.) can use the MUI DataGrid's built-in column filter functionality:
+### Backend API
 
-- Enable by ensuring `disableColumnFilter` is **not** set on the DataGrid (it is not set currently, so built-in filtering is already available via column menu)
-- The DataGrid community edition provides client-side filtering out of the box — since the grid uses server-side pagination, client-side filters only apply to the current page
-- **Preferred approach**: for true server-side filtering, extend the backend `GET /api/videos` endpoint to accept generic filter parameters (e.g., `?title_contains=xxx&year_gte=2020`), and wire DataGrid's `onFilterModelChange` to call the API with the corresponding query params
-- Fallback: if server-side filtering is too complex initially, enable client-side filtering on the loaded page data as a first step
-
-### Implementation Notes
-
-- MUI DataGrid community edition supports `filterModel` and `onFilterModelChange` props
-- For server-side filtering, set `filterMode="server"` on the DataGrid and handle filter model changes to re-fetch data
-- Column definitions can specify `filterable: false` to disable filtering on specific columns (e.g., `filePath`)
-- The column menu button (pinned top-right) currently controls visibility; filtering is accessed via each column's header menu (three-dot icon per column header, built into DataGrid)
+- `GET /api/videos/filter-options` — returns `{ studios: string[], setNames: string[] }`
+- Future phases will extend this endpoint to include additional distinct value lists (genres, tags, countries, etc.)
+- The `FilterOptionsDto` record in `IVideoService.cs` will be extended with new fields as needed
 
 ## Keyboard Shortcuts (Implemented)
 

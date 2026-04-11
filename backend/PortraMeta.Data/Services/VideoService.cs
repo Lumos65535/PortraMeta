@@ -23,6 +23,25 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
     private static readonly byte[] WebpRiff = [0x52, 0x49, 0x46, 0x46]; // "RIFF"
     private static readonly byte[] WebpTag = [0x57, 0x45, 0x42, 0x50]; // "WEBP"
 
+    public async Task<Result<FilterOptionsDto>> GetFilterOptionsAsync(CancellationToken ct = default)
+    {
+        var studios = await db.Studios
+            .Where(s => s.Name != null && s.Name != "")
+            .Select(s => s.Name!)
+            .Distinct()
+            .OrderBy(n => n)
+            .ToListAsync(ct);
+
+        var setNames = await db.VideoFiles
+            .Where(v => v.SetName != null && v.SetName != "")
+            .Select(v => v.SetName!)
+            .Distinct()
+            .OrderBy(n => n)
+            .ToListAsync(ct);
+
+        return Result<FilterOptionsDto>.Ok(new FilterOptionsDto(studios, setNames));
+    }
+
     public async Task<Result<PagedResult<VideoFileDto>>> GetAllAsync(
         VideoFileFilter filter, int page, int pageSize, CancellationToken ct = default)
     {
@@ -398,6 +417,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
         await db.SaveChangesAsync(ct);
 
+        // Clean up orphaned studios and actors no longer referenced by any video
+        await CleanupOrphanedEntitiesAsync(ct);
+
         var dto = ToDto(v);
         await nfoService.WriteAsync(FileSystemScanner.NfoPath(v.FilePath), dto, ct);
 
@@ -680,6 +702,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             }
         }
 
+        // Clean up orphaned studios and actors no longer referenced by any video
+        await CleanupOrphanedEntitiesAsync(ct);
+
         logger.LogInformation("Batch update complete: {Updated} updated, {FailedCount} failed", updated, failed.Count);
         return Result<BatchUpdateResult>.Ok(new BatchUpdateResult(updated, [.. failed]));
     }
@@ -948,4 +973,24 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
 
     private static T? DeserializeJson<T>(string? json) where T : class
         => string.IsNullOrEmpty(json) ? null : JsonSerializer.Deserialize<T>(json);
+
+    private async Task CleanupOrphanedEntitiesAsync(CancellationToken ct)
+    {
+        var orphanedStudios = await db.Studios
+            .Where(s => !db.VideoFiles.Any(v => v.StudioId == s.Id))
+            .ToListAsync(ct);
+
+        var orphanedActors = await db.Actors
+            .Where(a => !db.VideoActors.Any(va => va.ActorId == a.Id))
+            .ToListAsync(ct);
+
+        if (orphanedStudios.Count > 0)
+            db.Studios.RemoveRange(orphanedStudios);
+
+        if (orphanedActors.Count > 0)
+            db.Actors.RemoveRange(orphanedActors);
+
+        if (orphanedStudios.Count > 0 || orphanedActors.Count > 0)
+            await db.SaveChangesAsync(ct);
+    }
 }

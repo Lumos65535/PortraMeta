@@ -55,28 +55,16 @@
     },
     "advancedFilter": {
       "title": "高级筛选",
-      "and": "且 (AND)",
-      "or": "或 (OR)",
-      "addCondition": "添加条件",
-      "apply": "应用筛选",
       "clear": "清除",
       "activeCount": "{{count}} 项条件生效中",
-      "ops": {
-        "contains": "包含",
-        "equals": "等于",
-        "notequals": "不等于",
-        "startswith": "开头为",
-        "endswith": "结尾为",
-        "isempty": "为空",
-        "isnotempty": "不为空",
-        "is": "是",
-        "eq": "等于",
-        "neq": "不等于",
-        "gt": "大于",
-        "gte": "大于等于",
-        "lt": "小于",
-        "lte": "小于等于"
-      }
+      "studioLabel": "厂牌",
+      "setNameLabel": "合集",
+      "yearRangeLabel": "发布年份",
+      "yearFrom": "起始年份",
+      "yearTo": "截止年份",
+      "noStudio": "无厂牌",
+      "noSetName": "无合集",
+      "placeholder": "请选择"
     },
     "columns": {
       "filename": "文件名",

@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Divider, FormControlLabel, Grid, IconButton, Menu, MenuItem, Paper, Radio, RadioGroup,
-  Select, TextField, ToggleButton, ToggleButtonGroup, Typography,
+  Select, TextField, Typography,
 } from '@mui/material';
 import {
   Trash2, Pencil, MoreVertical, ArrowUp, ArrowDown,
-  EyeOff, Columns3, X, SlidersHorizontal, Plus, Filter,
+  EyeOff, Columns3, X, SlidersHorizontal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -383,210 +383,120 @@ function DeleteConfirmDialog({ open, count, onClose, onConfirm }: DeleteConfirmD
 
 // ── Advanced Filter ──────────────────────────────────────────────────────────
 
-type FieldType = 'boolean' | 'text' | 'number';
-
-interface FilterFieldDef {
-  key: string;
-  type: FieldType;
-}
-
-const ADVANCED_FILTER_FIELDS: FilterFieldDef[] = [
-  { key: 'hasNfo', type: 'boolean' },
-  { key: 'hasPoster', type: 'boolean' },
-  { key: 'hasFanart', type: 'boolean' },
-  { key: 'title', type: 'text' },
-  { key: 'originalTitle', type: 'text' },
-  { key: 'studioName', type: 'text' },
-  { key: 'fileName', type: 'text' },
-  { key: 'year', type: 'number' },
-  { key: 'runtime', type: 'number' },
-  { key: 'userRating', type: 'number' },
-  { key: 'directors', type: 'text' },
-  { key: 'genres', type: 'text' },
-  { key: 'tags', type: 'text' },
-  { key: 'mpaa', type: 'text' },
-  { key: 'premiered', type: 'text' },
-  { key: 'plot', type: 'text' },
-  { key: 'outline', type: 'text' },
-  { key: 'tagline', type: 'text' },
-  { key: 'credits', type: 'text' },
-  { key: 'countries', type: 'text' },
-  { key: 'setName', type: 'text' },
-  { key: 'dateAdded', type: 'text' },
-  { key: 'top250', type: 'number' },
-  { key: 'sortTitle', type: 'text' },
-];
-
-const TEXT_OPS = ['contains', 'equals', 'notequals', 'startswith', 'endswith', 'isempty', 'isnotempty'] as const;
-const NUMBER_OPS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'] as const;
-const BOOLEAN_OPS = ['is'] as const;
-const VALUE_LESS_OPS = new Set(['isempty', 'isnotempty']);
-
-function getOpsForType(type: FieldType) {
-  if (type === 'boolean') return BOOLEAN_OPS;
-  if (type === 'number') return NUMBER_OPS;
-  return TEXT_OPS;
-}
-
-function getDefaultOp(type: FieldType) {
-  if (type === 'boolean') return 'is';
-  if (type === 'number') return 'eq';
-  return 'contains';
-}
-
-function getDefaultValue(type: FieldType) {
-  if (type === 'boolean') return 'true';
-  return '';
-}
-
-interface AdvancedFilterRow {
-  id: number;
-  field: string;
-  op: string;
-  value: string;
-}
+const EMPTY_MARKER = '__empty__';
 
 interface AdvancedFilterPanelProps {
   open: boolean;
-  rows: AdvancedFilterRow[];
-  logic: 'and' | 'or';
-  onRowsChange: (rows: AdvancedFilterRow[]) => void;
-  onLogicChange: (logic: 'and' | 'or') => void;
-  onApply: () => void;
+  studio: string | null;
+  setName: string | null;
+  yearFrom: string;
+  yearTo: string;
+  onStudioChange: (value: string | null) => void;
+  onSetNameChange: (value: string | null) => void;
+  onYearFromChange: (value: string) => void;
+  onYearToChange: (value: string) => void;
   onClear: () => void;
   activeCount: number;
+  studioOptions: string[];
+  setNameOptions: string[];
 }
 
 function AdvancedFilterPanel({
-  open, rows, logic, onRowsChange, onLogicChange, onApply, onClear, activeCount,
+  open, studio, setName, yearFrom, yearTo,
+  onStudioChange, onSetNameChange, onYearFromChange, onYearToChange,
+  onClear, activeCount, studioOptions, setNameOptions,
 }: AdvancedFilterPanelProps) {
   const { t } = useTranslation();
 
   if (!open) return null;
 
-  const addRow = () => {
-    const firstField = ADVANCED_FILTER_FIELDS[0];
-    onRowsChange([
-      ...rows,
-      { id: Date.now(), field: firstField.key, op: getDefaultOp(firstField.type), value: getDefaultValue(firstField.type) },
-    ]);
-  };
-
-  const removeRow = (id: number) => {
-    onRowsChange(rows.filter(r => r.id !== id));
-  };
-
-  const updateRow = (id: number, patch: Partial<AdvancedFilterRow>) => {
-    onRowsChange(rows.map(r => {
-      if (r.id !== id) return r;
-      const updated = { ...r, ...patch };
-      // When field changes, reset op and value to defaults for new field type
-      if (patch.field && patch.field !== r.field) {
-        const def = ADVANCED_FILTER_FIELDS.find(f => f.key === patch.field);
-        if (def) {
-          updated.op = getDefaultOp(def.type);
-          updated.value = getDefaultValue(def.type);
-        }
-      }
-      return updated;
-    }));
-  };
-
-  const getFieldLabel = (key: string) => {
-    // Try videos.columns first, then videoDetail.fields
-    const colKey = `videos.columns.${key === 'studioName' ? 'studio' : key === 'hasNfo' ? 'nfo' : key === 'hasPoster' ? 'poster' : key === 'hasFanart' ? 'fanart' : key === 'fileName' ? 'filename' : key}`;
-    const label = t(colKey);
-    return label !== colKey ? label : key;
-  };
-
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
         <Typography variant="subtitle2">{t('videos.advancedFilter.title')}</Typography>
-        <ToggleButtonGroup
-          value={logic}
-          exclusive
-          onChange={(_, v) => v && onLogicChange(v)}
-          size="small"
-        >
-          <ToggleButton value="and" sx={{ px: 1.5, py: 0.25, textTransform: 'none', fontSize: '0.8rem' }}>
-            {t('videos.advancedFilter.and')}
-          </ToggleButton>
-          <ToggleButton value="or" sx={{ px: 1.5, py: 0.25, textTransform: 'none', fontSize: '0.8rem' }}>
-            {t('videos.advancedFilter.or')}
-          </ToggleButton>
-        </ToggleButtonGroup>
         <Box sx={{ flex: 1 }} />
         {activeCount > 0 && (
           <Chip label={t('videos.advancedFilter.activeCount', { count: activeCount })} size="small" color="primary" />
         )}
-      </Box>
-
-      {rows.map(row => {
-        const fieldDef = ADVANCED_FILTER_FIELDS.find(f => f.key === row.field);
-        const fieldType = fieldDef?.type ?? 'text';
-        const ops = getOpsForType(fieldType);
-        const needsValue = !VALUE_LESS_OPS.has(row.op);
-
-        return (
-          <Box key={row.id} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-            <Select
-              value={row.field}
-              onChange={e => updateRow(row.id, { field: e.target.value })}
-              size="small"
-              sx={{ minWidth: 130 }}
-            >
-              {ADVANCED_FILTER_FIELDS.map(f => (
-                <MenuItem key={f.key} value={f.key}>{getFieldLabel(f.key)}</MenuItem>
-              ))}
-            </Select>
-            <Select
-              value={row.op}
-              onChange={e => updateRow(row.id, { op: e.target.value })}
-              size="small"
-              sx={{ minWidth: 120 }}
-            >
-              {ops.map(op => (
-                <MenuItem key={op} value={op}>{t(`videos.advancedFilter.ops.${op}`)}</MenuItem>
-              ))}
-            </Select>
-            {needsValue && fieldType === 'boolean' ? (
-              <Select
-                value={row.value}
-                onChange={e => updateRow(row.id, { value: e.target.value })}
-                size="small"
-                sx={{ minWidth: 100 }}
-              >
-                <MenuItem value="true">{t('videos.filter.yes')}</MenuItem>
-                <MenuItem value="false">{t('videos.filter.no')}</MenuItem>
-              </Select>
-            ) : needsValue ? (
-              <TextField
-                value={row.value}
-                onChange={e => updateRow(row.id, { value: e.target.value })}
-                size="small"
-                type={fieldType === 'number' ? 'number' : 'text'}
-                sx={{ minWidth: 120, flex: 1 }}
-              />
-            ) : null}
-            <IconButton size="small" onClick={() => removeRow(row.id)}>
-              <X size={16} />
-            </IconButton>
-          </Box>
-        );
-      })}
-
-      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-        <Button size="small" startIcon={<Plus size={16} />} onClick={addRow}>
-          {t('videos.advancedFilter.addCondition')}
-        </Button>
-        <Box sx={{ flex: 1 }} />
-        <Button size="small" onClick={onClear} disabled={rows.length === 0}>
+        <Button size="small" onClick={onClear} disabled={activeCount === 0}>
           {t('videos.advancedFilter.clear')}
         </Button>
-        <Button size="small" variant="contained" onClick={onApply} startIcon={<Filter size={16} />}>
-          {t('videos.advancedFilter.apply')}
-        </Button>
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Studio */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            {t('videos.advancedFilter.studioLabel')}:
+          </Typography>
+          <Select
+            value={studio ?? ''}
+            onChange={e => {
+              const v = e.target.value;
+              onStudioChange(v === '' ? null : v);
+            }}
+            size="small"
+            displayEmpty
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">{t('videos.advancedFilter.placeholder')}</MenuItem>
+            <MenuItem value={EMPTY_MARKER}>{t('videos.advancedFilter.noStudio')}</MenuItem>
+            <Divider />
+            {studioOptions.map(s => (
+              <MenuItem key={s} value={s}>{s}</MenuItem>
+            ))}
+          </Select>
+        </Box>
+
+        {/* Collection / SetName */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            {t('videos.advancedFilter.setNameLabel')}:
+          </Typography>
+          <Select
+            value={setName ?? ''}
+            onChange={e => {
+              const v = e.target.value;
+              onSetNameChange(v === '' ? null : v);
+            }}
+            size="small"
+            displayEmpty
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">{t('videos.advancedFilter.placeholder')}</MenuItem>
+            <MenuItem value={EMPTY_MARKER}>{t('videos.advancedFilter.noSetName')}</MenuItem>
+            <Divider />
+            {setNameOptions.map(s => (
+              <MenuItem key={s} value={s}>{s}</MenuItem>
+            ))}
+          </Select>
+        </Box>
+
+        {/* Year Range */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            {t('videos.advancedFilter.yearRangeLabel')}:
+          </Typography>
+          <TextField
+            value={yearFrom}
+            onChange={e => onYearFromChange(e.target.value)}
+            size="small"
+            type="number"
+            placeholder={t('videos.advancedFilter.yearFrom')}
+            sx={{ width: 110 }}
+            slotProps={{ htmlInput: { min: 1900, max: 2099 } }}
+          />
+          <Typography variant="body2" color="text.secondary">—</Typography>
+          <TextField
+            value={yearTo}
+            onChange={e => onYearToChange(e.target.value)}
+            size="small"
+            type="number"
+            placeholder={t('videos.advancedFilter.yearTo')}
+            sx={{ width: 110 }}
+            slotProps={{ htmlInput: { min: 1900, max: 2099 } }}
+          />
+        </Box>
       </Box>
     </Paper>
   );
@@ -623,10 +533,14 @@ export default function VideosPage() {
 
   // Advanced filter state
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
-  const [advancedRows, setAdvancedRows] = useState<AdvancedFilterRow[]>([]);
-  const [advancedLogic, setAdvancedLogic] = useState<'and' | 'or'>('and');
+  const [filterStudio, setFilterStudio] = useState<string | null>(null);
+  const [filterSetName, setFilterSetName] = useState<string | null>(null);
+  const [filterYearFrom, setFilterYearFrom] = useState('');
+  const [filterYearTo, setFilterYearTo] = useState('');
   const [activeAdvancedFilters, setActiveAdvancedFilters] = useState<AdvancedFilterItem[]>([]);
   const activeAdvancedFiltersRef = useRef<AdvancedFilterItem[]>([]);
+  const [filterStudioOptions, setFilterStudioOptions] = useState<string[]>([]);
+  const [filterSetNameOptions, setFilterSetNameOptions] = useState<string[]>([]);
 
   useEffect(() => {
     if (persistRef.current) {
@@ -671,9 +585,16 @@ export default function VideosPage() {
         has_poster: toBool(bf.hasPoster),
         has_fanart: toBool(bf.hasFanart),
         filters: advFilters.length > 0 ? JSON.stringify(advFilters) : undefined,
-        filter_logic: advFilters.length > 0 ? advancedLogic : undefined,
+        filter_logic: advFilters.length > 0 ? 'and' : undefined,
       });
       if (res.success) setResult(res.data);
+      // Refresh filter dropdown options alongside every data load
+      videosApi.getFilterOptions().then(optRes => {
+        if (optRes.success) {
+          setFilterStudioOptions(optRes.data.studios);
+          setFilterSetNameOptions(optRes.data.setNames);
+        }
+      });
     } catch (err) {
       notify((err as Error).message, 'error');
     } finally {
@@ -718,26 +639,75 @@ export default function VideosPage() {
     if (value) {
       setActiveAdvancedFilters([]);
       activeAdvancedFiltersRef.current = [];
+      setFilterStudio(null);
+      setFilterSetName(null);
+      setFilterYearFrom('');
+      setFilterYearTo('');
     }
     setPage(1);
     load(search, 1, sortModel);
   }, [search, sortModel]);
 
-  const handleAdvancedApply = () => {
-    const valid = advancedRows
-      .filter(r => VALUE_LESS_OPS.has(r.op) || r.value.trim() !== '')
-      .map(r => ({ field: r.field, op: r.op, value: r.value }));
-    setActiveAdvancedFilters(valid);
-    activeAdvancedFiltersRef.current = valid;
+  const buildAdvancedFilters = (
+    studio: string | null, set: string | null, yearFrom: string, yearTo: string,
+  ): AdvancedFilterItem[] => {
+    const items: AdvancedFilterItem[] = [];
+    if (studio === EMPTY_MARKER) {
+      items.push({ field: 'studioName', op: 'isempty', value: '' });
+    } else if (studio) {
+      items.push({ field: 'studioName', op: 'equals', value: studio });
+    }
+    if (set === EMPTY_MARKER) {
+      items.push({ field: 'setName', op: 'isempty', value: '' });
+    } else if (set) {
+      items.push({ field: 'setName', op: 'equals', value: set });
+    }
+    if (yearFrom.trim()) {
+      items.push({ field: 'year', op: 'gte', value: yearFrom.trim() });
+    }
+    if (yearTo.trim()) {
+      items.push({ field: 'year', op: 'lte', value: yearTo.trim() });
+    }
+    return items;
+  };
+
+  const applyAdvancedFilter = (
+    studio: string | null, set: string | null, yearFrom: string, yearTo: string,
+  ) => {
+    const filters = buildAdvancedFilters(studio, set, yearFrom, yearTo);
+    setActiveAdvancedFilters(filters);
+    activeAdvancedFiltersRef.current = filters;
     // Clear quick boolean filters when advanced filter is applied
-    setBoolFilters({});
-    boolFiltersRef.current = {};
+    if (filters.length > 0) {
+      setBoolFilters({});
+      boolFiltersRef.current = {};
+    }
     setPage(1);
     load(search, 1, sortModel);
   };
 
+  const handleFilterStudioChange = (value: string | null) => {
+    setFilterStudio(value);
+    applyAdvancedFilter(value, filterSetName, filterYearFrom, filterYearTo);
+  };
+  const handleFilterSetNameChange = (value: string | null) => {
+    setFilterSetName(value);
+    applyAdvancedFilter(filterStudio, value, filterYearFrom, filterYearTo);
+  };
+  const handleFilterYearFromChange = (value: string) => {
+    setFilterYearFrom(value);
+    applyAdvancedFilter(filterStudio, filterSetName, value, filterYearTo);
+  };
+  const handleFilterYearToChange = (value: string) => {
+    setFilterYearTo(value);
+    applyAdvancedFilter(filterStudio, filterSetName, filterYearFrom, value);
+  };
+
   const handleAdvancedClear = () => {
-    setAdvancedRows([]);
+    setFilterStudio(null);
+    setFilterSetName(null);
+    setFilterYearFrom('');
+    setFilterYearTo('');
     setActiveAdvancedFilters([]);
     activeAdvancedFiltersRef.current = [];
     setPage(1);
@@ -1110,13 +1080,18 @@ export default function VideosPage() {
 
         <AdvancedFilterPanel
           open={advancedFilterOpen}
-          rows={advancedRows}
-          logic={advancedLogic}
-          onRowsChange={setAdvancedRows}
-          onLogicChange={setAdvancedLogic}
-          onApply={handleAdvancedApply}
+          studio={filterStudio}
+          setName={filterSetName}
+          yearFrom={filterYearFrom}
+          yearTo={filterYearTo}
+          onStudioChange={handleFilterStudioChange}
+          onSetNameChange={handleFilterSetNameChange}
+          onYearFromChange={handleFilterYearFromChange}
+          onYearToChange={handleFilterYearToChange}
           onClear={handleAdvancedClear}
           activeCount={activeAdvancedFilters.length}
+          studioOptions={filterStudioOptions}
+          setNameOptions={filterSetNameOptions}
         />
       </Box>
 

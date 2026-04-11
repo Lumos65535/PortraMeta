@@ -55,28 +55,16 @@
     },
     "advancedFilter": {
       "title": "Advanced Filter",
-      "and": "AND",
-      "or": "OR",
-      "addCondition": "Add Condition",
-      "apply": "Apply",
       "clear": "Clear",
       "activeCount": "{{count}} condition(s) active",
-      "ops": {
-        "contains": "Contains",
-        "equals": "Equals",
-        "notequals": "Not Equals",
-        "startswith": "Starts With",
-        "endswith": "Ends With",
-        "isempty": "Is Empty",
-        "isnotempty": "Is Not Empty",
-        "is": "Is",
-        "eq": "Equals",
-        "neq": "Not Equals",
-        "gt": "Greater Than",
-        "gte": "Greater or Equal",
-        "lt": "Less Than",
-        "lte": "Less or Equal"
-      }
+      "studioLabel": "Studio",
+      "setNameLabel": "Collection",
+      "yearRangeLabel": "Year",
+      "yearFrom": "From",
+      "yearTo": "To",
+      "noStudio": "No Studio",
+      "noSetName": "No Collection",
+      "placeholder": "Select"
     },
     "columns": {
       "filename": "Filename",

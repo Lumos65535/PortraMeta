@@ -165,7 +165,14 @@ export interface BatchDeleteResult {
   failed: number[];
 }
 
+export interface FilterOptions {
+  studios: string[];
+  setNames: string[];
+}
+
 export const videosApi = {
+  getFilterOptions: () =>
+    api.get<ApiResponse<FilterOptions>>('/videos/filter-options').then(r => r.data),
   getAll: (filter: VideoFilter = {}) =>
     api.get<ApiResponse<PagedResult<VideoFile>>>('/videos', { params: filter }).then(r => r.data),
   getById: (id: number) =>

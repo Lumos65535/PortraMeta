@@ -129,8 +129,11 @@ public record BatchDeleteRequest(int[] Ids, DeleteMode Mode);
 
 public record BatchDeleteResult(int Deleted, int[] Failed);
 
+public record FilterOptionsDto(IReadOnlyList<string> Studios, IReadOnlyList<string> SetNames);
+
 public interface IVideoService
 {
+    Task<Result<FilterOptionsDto>> GetFilterOptionsAsync(CancellationToken ct = default);
     Task<Result<PagedResult<VideoFileDto>>> GetAllAsync(
         VideoFileFilter filter, int page, int pageSize, CancellationToken ct = default);
     Task<Result<VideoFileDto>> GetByIdAsync(int id, CancellationToken ct = default);

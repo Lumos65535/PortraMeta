@@ -10,6 +10,15 @@ public class VideosController(IVideoService videoService) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
 
+    [HttpGet("filter-options")]
+    public async Task<IActionResult> GetFilterOptions(CancellationToken ct)
+    {
+        var result = await videoService.GetFilterOptionsAsync(ct);
+        return result.Success
+            ? Ok(new { data = result.Data, success = true })
+            : BadRequest(new { error = result.Error, success = false });
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] bool? has_nfo,
