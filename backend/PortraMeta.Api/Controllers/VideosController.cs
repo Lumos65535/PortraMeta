@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using PortraMeta.Core.Interfaces;
 
@@ -7,6 +8,8 @@ namespace PortraMeta.Api.Controllers;
 [Route("api/videos")]
 public class VideosController(IVideoService videoService) : ControllerBase
 {
+    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] bool? has_nfo,
@@ -19,12 +22,27 @@ public class VideosController(IVideoService videoService) : ControllerBase
         [FromQuery] int page_size = 50,
         [FromQuery] string? sort_by = null,
         [FromQuery] bool sort_desc = false,
+        [FromQuery] string? filters = null,
+        [FromQuery] string filter_logic = "and",
         CancellationToken ct = default)
     {
         page = Math.Max(1, page);
         page_size = Math.Clamp(page_size, 1, 500);
 
-        var filter = new VideoFileFilter(has_nfo, has_poster, has_fanart, library_id, studio_id, search, sort_by, sort_desc);
+        IReadOnlyList<AdvancedFilterItem>? advancedFilters = null;
+        if (!string.IsNullOrEmpty(filters))
+        {
+            try
+            {
+                advancedFilters = JsonSerializer.Deserialize<List<AdvancedFilterItem>>(filters, JsonOpts);
+            }
+            catch (JsonException)
+            {
+                return BadRequest(new { error = "Invalid filters JSON format", success = false });
+            }
+        }
+
+        var filter = new VideoFileFilter(has_nfo, has_poster, has_fanart, library_id, studio_id, search, sort_by, sort_desc, advancedFilters, filter_logic);
         var result = await videoService.GetAllAsync(filter, page, page_size, ct);
         return result.Success
             ? Ok(new { data = result.Data, success = true })

@@ -35,7 +35,7 @@ public class VideoServiceTests : IDisposable
         return lib;
     }
 
-    private VideoFile SeedVideo(Library lib, string fileName = "video.mp4", string? title = null, int? year = null, Studio? studio = null)
+    private VideoFile SeedVideo(Library lib, string fileName = "video.mp4", string? title = null, int? year = null, Studio? studio = null, bool? hasPoster = null, bool? hasFanart = null)
     {
         var vf = new VideoFile
         {
@@ -44,6 +44,8 @@ public class VideoServiceTests : IDisposable
             FilePath = Path.Combine(lib.Path, fileName),
             FileSizeBytes = 1000,
             HasNfo = title != null,
+            HasPoster = hasPoster ?? false,
+            HasFanart = hasFanart ?? false,
             Title = title,
             Year = year,
             Studio = studio,
@@ -387,5 +389,199 @@ public class VideoServiceTests : IDisposable
             File.Delete(tmpFile);
             Directory.Delete(tmpDir);
         }
+    }
+
+    // ── Multiple Boolean Quick Filters ────────────────────────────────
+
+    [Fact]
+    public async Task GetAllAsync_MultipleBooleanFilters_And()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "both.mp4", title: "Both", hasPoster: true, hasFanart: true);
+        SeedVideo(lib, "poster-only.mp4", title: "PosterOnly", hasPoster: true, hasFanart: false);
+        SeedVideo(lib, "fanart-only.mp4", title: "FanartOnly", hasPoster: false, hasFanart: true);
+        SeedVideo(lib, "neither.mp4");
+
+        var filter = new VideoFileFilter(HasPoster: true, HasFanart: true);
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("Both", result.Data.Items[0].Title);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_BooleanFilter_NoPoster_NoFanart()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "both.mp4", title: "Both", hasPoster: true, hasFanart: true);
+        SeedVideo(lib, "neither.mp4", hasPoster: false, hasFanart: false);
+
+        var filter = new VideoFileFilter(HasPoster: false, HasFanart: false);
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("neither.mp4", result.Data.Items[0].FileName);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AllThreeBooleanFilters()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "full.mp4", title: "Full", hasPoster: true, hasFanart: true);
+        SeedVideo(lib, "partial.mp4", title: "Partial", hasPoster: true, hasFanart: false);
+        SeedVideo(lib, "none.mp4");
+
+        var filter = new VideoFileFilter(HasNfo: true, HasPoster: true, HasFanart: true);
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("Full", result.Data.Items[0].Title);
+    }
+
+    // ── Advanced Filters ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetAllAsync_AdvancedFilter_TextContains()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "a.mp4", title: "Action Movie");
+        SeedVideo(lib, "b.mp4", title: "Comedy Show");
+
+        var filters = new List<AdvancedFilterItem> { new("title", "contains", "Action") };
+        var filter = new VideoFileFilter(AdvancedFilters: filters);
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("Action Movie", result.Data.Items[0].Title);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AdvancedFilter_NumericEquals()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "a.mp4", title: "Old", year: 2000);
+        SeedVideo(lib, "b.mp4", title: "New", year: 2024);
+
+        var filters = new List<AdvancedFilterItem> { new("year", "eq", "2024") };
+        var filter = new VideoFileFilter(AdvancedFilters: filters);
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("New", result.Data.Items[0].Title);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AdvancedFilter_NumericRange()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "a.mp4", title: "Y2000", year: 2000);
+        SeedVideo(lib, "b.mp4", title: "Y2010", year: 2010);
+        SeedVideo(lib, "c.mp4", title: "Y2024", year: 2024);
+
+        var filters = new List<AdvancedFilterItem>
+        {
+            new("year", "gte", "2005"),
+            new("year", "lte", "2020"),
+        };
+        var filter = new VideoFileFilter(AdvancedFilters: filters, FilterLogic: "and");
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("Y2010", result.Data.Items[0].Title);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AdvancedFilter_BooleanIs()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "a.mp4", title: "WithPoster", hasPoster: true);
+        SeedVideo(lib, "b.mp4", title: "NoPoster", hasPoster: false);
+
+        var filters = new List<AdvancedFilterItem> { new("hasPoster", "is", "true") };
+        var filter = new VideoFileFilter(AdvancedFilters: filters);
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("WithPoster", result.Data.Items[0].Title);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AdvancedFilter_OrLogic()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "a.mp4", title: "Alpha", year: 2000);
+        SeedVideo(lib, "b.mp4", title: "Beta", year: 2024);
+        SeedVideo(lib, "c.mp4", title: "Gamma", year: 2010);
+
+        var filters = new List<AdvancedFilterItem>
+        {
+            new("year", "eq", "2000"),
+            new("year", "eq", "2024"),
+        };
+        var filter = new VideoFileFilter(AdvancedFilters: filters, FilterLogic: "or");
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Equal(2, result.Data!.Items.Count);
+        var titles = result.Data.Items.Select(i => i.Title).OrderBy(t => t).ToList();
+        Assert.Equal(["Alpha", "Beta"], titles);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AdvancedFilter_MultipleBooleans_And()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "a.mp4", title: "All", hasPoster: true, hasFanart: true);
+        SeedVideo(lib, "b.mp4", title: "PosterOnly", hasPoster: true, hasFanart: false);
+        SeedVideo(lib, "c.mp4", title: "None");
+
+        var filters = new List<AdvancedFilterItem>
+        {
+            new("hasPoster", "is", "true"),
+            new("hasFanart", "is", "true"),
+        };
+        var filter = new VideoFileFilter(AdvancedFilters: filters, FilterLogic: "and");
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("All", result.Data.Items[0].Title);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AdvancedFilter_TextIsEmpty()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "titled.mp4", title: "Has Title");
+        SeedVideo(lib, "untitled.mp4");
+
+        var filters = new List<AdvancedFilterItem> { new("title", "isempty", "") };
+        var filter = new VideoFileFilter(AdvancedFilters: filters);
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("untitled.mp4", result.Data.Items[0].FileName);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AdvancedFilter_UnknownField_Ignored()
+    {
+        var lib = SeedLibrary();
+        SeedVideo(lib, "a.mp4");
+
+        var filters = new List<AdvancedFilterItem> { new("nonexistent", "eq", "x") };
+        var filter = new VideoFileFilter(AdvancedFilters: filters);
+        var result = await _svc.GetAllAsync(filter, 1, 50);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Data!.Items);
     }
 }

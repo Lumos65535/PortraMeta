@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
                 (v.Studio != null && EF.Functions.Like(v.Studio.Name, pattern)));
         }
 
+        if (filter.AdvancedFilters is { Count: > 0 })
+            query = ApplyAdvancedFilters(query, filter.AdvancedFilters, filter.FilterLogic);
+
         var total = await query.CountAsync(ct);
 
         IQueryable<VideoFile> sorted = (filter.SortBy, filter.SortDesc) switch
@@ -92,6 +96,167 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             Page = page,
             PageSize = pageSize
         });
+    }
+
+    private static IQueryable<VideoFile> ApplyAdvancedFilters(
+        IQueryable<VideoFile> query, IReadOnlyList<AdvancedFilterItem> items, string logic)
+    {
+        var predicates = new List<Expression<Func<VideoFile, bool>>>();
+
+        foreach (var item in items)
+        {
+            var predicate = BuildPredicate(item);
+            if (predicate != null)
+                predicates.Add(predicate);
+        }
+
+        if (predicates.Count == 0)
+            return query;
+
+        var combined = predicates[0];
+        for (var i = 1; i < predicates.Count; i++)
+        {
+            combined = logic.Equals("or", StringComparison.OrdinalIgnoreCase)
+                ? CombineOr(combined, predicates[i])
+                : CombineAnd(combined, predicates[i]);
+        }
+
+        return query.Where(combined);
+    }
+
+    private static Expression<Func<VideoFile, bool>>? BuildPredicate(AdvancedFilterItem item)
+    {
+        var op = item.Op.ToLowerInvariant();
+        var val = item.Value;
+
+        return item.Field.ToLowerInvariant() switch
+        {
+            // Boolean fields
+            "hasnfo" => BoolPredicate(v => v.HasNfo, val),
+            "hasposter" => BoolPredicate(v => v.HasPoster, val),
+            "hasfanart" => BoolPredicate(v => v.HasFanart, val),
+            // Text fields (contains / equals)
+            "title" => TextPredicate(v => v.Title, op, val),
+            "originaltitle" => TextPredicate(v => v.OriginalTitle, op, val),
+            "sorttitle" => TextPredicate(v => v.SortTitle, op, val),
+            "filename" => TextPredicate(v => v.FileName, op, val),
+            "studioname" => TextPredicate(v => v.Studio != null ? v.Studio.Name : null, op, val),
+            "plot" => TextPredicate(v => v.Plot, op, val),
+            "outline" => TextPredicate(v => v.Outline, op, val),
+            "tagline" => TextPredicate(v => v.Tagline, op, val),
+            "mpaa" => TextPredicate(v => v.Mpaa, op, val),
+            "premiered" => TextPredicate(v => v.Premiered, op, val),
+            "setname" => TextPredicate(v => v.SetName, op, val),
+            "dateadded" => TextPredicate(v => v.DateAdded, op, val),
+            // JSON array fields (contains search within JSON string)
+            "directors" => TextPredicate(v => v.DirectorsJson, op, val),
+            "genres" => TextPredicate(v => v.GenresJson, op, val),
+            "tags" => TextPredicate(v => v.TagsJson, op, val),
+            "credits" => TextPredicate(v => v.CreditsJson, op, val),
+            "countries" => TextPredicate(v => v.CountriesJson, op, val),
+            // Numeric fields
+            "year" => NumericPredicate(v => v.Year, op, val),
+            "runtime" => NumericPredicate(v => v.Runtime, op, val),
+            "userrating" => NumericPredicate(v => v.UserRating, op, val),
+            "top250" => NumericPredicate(v => v.Top250, op, val),
+            _ => null
+        };
+    }
+
+    private static Expression<Func<VideoFile, bool>> BoolPredicate(
+        Expression<Func<VideoFile, bool>> selector, string val)
+    {
+        var isTrue = val.Equals("true", StringComparison.OrdinalIgnoreCase);
+        var param = selector.Parameters[0];
+        var body = isTrue
+            ? selector.Body
+            : Expression.Not(selector.Body);
+        return Expression.Lambda<Func<VideoFile, bool>>(body, param);
+    }
+
+    private static Expression<Func<VideoFile, bool>>? TextPredicate(
+        Expression<Func<VideoFile, string?>> selector, string op, string val)
+    {
+        var param = selector.Parameters[0];
+        var member = selector.Body;
+        var pattern = Expression.Constant($"%{val}%");
+        var valConst = Expression.Constant(val);
+
+        Expression body = op switch
+        {
+            "contains" => MakeLikeCall(member, pattern),
+            "equals" => Expression.Equal(member, valConst),
+            "notequals" => Expression.NotEqual(member, valConst),
+            "startswith" => MakeLikeCall(member, Expression.Constant($"{val}%")),
+            "endswith" => MakeLikeCall(member, Expression.Constant($"%{val}")),
+            "isempty" => Expression.OrElse(
+                Expression.Equal(member, Expression.Constant(null, typeof(string))),
+                Expression.Equal(member, Expression.Constant(""))),
+            "isnotempty" => Expression.AndAlso(
+                Expression.NotEqual(member, Expression.Constant(null, typeof(string))),
+                Expression.NotEqual(member, Expression.Constant(""))),
+            _ => MakeLikeCall(member, pattern)
+        };
+
+        return Expression.Lambda<Func<VideoFile, bool>>(body, param);
+    }
+
+    private static MethodCallExpression MakeLikeCall(Expression member, Expression pattern)
+    {
+        var likeMethod = typeof(DbFunctionsExtensions).GetMethod(
+            nameof(DbFunctionsExtensions.Like),
+            [typeof(DbFunctions), typeof(string), typeof(string)])!;
+        return Expression.Call(likeMethod, Expression.Constant(EF.Functions), member, pattern);
+    }
+
+    private static Expression<Func<VideoFile, bool>>? NumericPredicate(
+        Expression<Func<VideoFile, int?>> selector, string op, string val)
+    {
+        if (!int.TryParse(val, out var num))
+            return null;
+
+        var param = selector.Parameters[0];
+        var member = selector.Body;
+        var valExpr = Expression.Convert(Expression.Constant(num), typeof(int?));
+
+        Expression body = op switch
+        {
+            "eq" or "equals" => Expression.Equal(member, valExpr),
+            "neq" or "notequals" => Expression.NotEqual(member, valExpr),
+            "gt" => Expression.GreaterThan(member, valExpr),
+            "gte" => Expression.GreaterThanOrEqual(member, valExpr),
+            "lt" => Expression.LessThan(member, valExpr),
+            "lte" => Expression.LessThanOrEqual(member, valExpr),
+            _ => Expression.Equal(member, valExpr)
+        };
+
+        return Expression.Lambda<Func<VideoFile, bool>>(body, param);
+    }
+
+    private static Expression<Func<VideoFile, bool>> CombineAnd(
+        Expression<Func<VideoFile, bool>> left, Expression<Func<VideoFile, bool>> right)
+    {
+        var param = left.Parameters[0];
+        var body = Expression.AndAlso(
+            left.Body,
+            new ParameterReplacer(right.Parameters[0], param).Visit(right.Body));
+        return Expression.Lambda<Func<VideoFile, bool>>(body, param);
+    }
+
+    private static Expression<Func<VideoFile, bool>> CombineOr(
+        Expression<Func<VideoFile, bool>> left, Expression<Func<VideoFile, bool>> right)
+    {
+        var param = left.Parameters[0];
+        var body = Expression.OrElse(
+            left.Body,
+            new ParameterReplacer(right.Parameters[0], param).Visit(right.Body));
+        return Expression.Lambda<Func<VideoFile, bool>>(body, param);
+    }
+
+    private sealed class ParameterReplacer(ParameterExpression oldParam, ParameterExpression newParam) : ExpressionVisitor
+    {
+        protected override Expression VisitParameter(ParameterExpression node)
+            => node == oldParam ? newParam : base.VisitParameter(node);
     }
 
     public async Task<Result<VideoFileDto>> GetByIdAsync(int id, CancellationToken ct = default)

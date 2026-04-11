@@ -49,7 +49,34 @@
     "filter": {
       "all": "全部",
       "yes": "有 (✓)",
-      "no": "无 (✗)"
+      "no": "无 (✗)",
+      "yesShort": "✓",
+      "noShort": "✗"
+    },
+    "advancedFilter": {
+      "title": "高级筛选",
+      "and": "且 (AND)",
+      "or": "或 (OR)",
+      "addCondition": "添加条件",
+      "apply": "应用筛选",
+      "clear": "清除",
+      "activeCount": "{{count}} 项条件生效中",
+      "ops": {
+        "contains": "包含",
+        "equals": "等于",
+        "notequals": "不等于",
+        "startswith": "开头为",
+        "endswith": "结尾为",
+        "isempty": "为空",
+        "isnotempty": "不为空",
+        "is": "是",
+        "eq": "等于",
+        "neq": "不等于",
+        "gt": "大于",
+        "gte": "大于等于",
+        "lt": "小于",
+        "lte": "小于等于"
+      }
     },
     "columns": {
       "filename": "文件名",

@@ -54,8 +54,12 @@ public record VideoFileFilter(
     int? StudioId = null,
     string? Search = null,
     string? SortBy = null,
-    bool SortDesc = false
+    bool SortDesc = false,
+    IReadOnlyList<AdvancedFilterItem>? AdvancedFilters = null,
+    string FilterLogic = "and"
 );
+
+public record AdvancedFilterItem(string Field, string Op, string Value);
 
 public record ActorRequest(string Name, string? Role, int Order);
 

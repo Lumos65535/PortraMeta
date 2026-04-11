@@ -72,6 +72,14 @@ export interface VideoFilter {
   page_size?: number;
   sort_by?: string;
   sort_desc?: boolean;
+  filters?: string;
+  filter_logic?: string;
+}
+
+export interface AdvancedFilterItem {
+  field: string;
+  op: string;
+  value: string;
 }
 
 export interface ActorRequest {

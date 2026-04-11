@@ -1,25 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
-  DialogTitle, FormControlLabel, Grid, IconButton, Menu, MenuItem, Radio, RadioGroup, Select, TextField, Typography,
+  DialogTitle, Divider, FormControlLabel, Grid, IconButton, Menu, MenuItem, Paper, Radio, RadioGroup,
+  Select, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
 import {
-  Trash2, Pencil, MoreVertical, Filter, ListFilter, ArrowUp, ArrowDown,
-  EyeOff, Columns3, X, Plus,
+  Trash2, Pencil, MoreVertical, ArrowUp, ArrowDown,
+  EyeOff, Columns3, X, SlidersHorizontal, Plus, Filter,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   DataGrid,
   type GridColDef,
+  type GridColumnMenuItemProps,
   type GridColumnVisibilityModel,
-  type GridFilterModel,
-  type GridFilterOperator,
   type GridPaginationModel,
   type GridSortModel,
 } from '@mui/x-data-grid';
 import { videosApi } from '../api/videos';
-import type { BatchUpdateRequest, DeleteMode, PagedResult, VideoFile } from '../api/videos';
+import type { AdvancedFilterItem, BatchUpdateRequest, DeleteMode, PagedResult, VideoFile } from '../api/videos';
 import { useNotify } from '../contexts/NotifyContext';
 import { getFieldLabelKey, getFieldVisibility, isFieldVisible } from '../utils/fieldVisibility';
 import type { FieldVisibility } from '../utils/fieldVisibility';
@@ -106,8 +106,6 @@ function lucideSlot(Icon: React.ComponentType<{ size?: number; className?: strin
 
 const dataGridSlots = {
   columnMenuIcon: lucideSlot(MoreVertical),
-  columnMenuFilterIcon: lucideSlot(Filter),
-  columnFilteredIcon: lucideSlot(ListFilter),
   columnMenuSortAscendingIcon: lucideSlot(ArrowUp),
   columnMenuSortDescendingIcon: lucideSlot(ArrowDown),
   columnSortedAscendingIcon: lucideSlot(ArrowUp),
@@ -115,38 +113,48 @@ const dataGridSlots = {
   columnMenuHideIcon: lucideSlot(EyeOff),
   columnMenuManageColumnsIcon: lucideSlot(Columns3),
   columnMenuClearIcon: lucideSlot(X),
-  filterPanelAddIcon: lucideSlot(Plus),
-  filterPanelDeleteIcon: lucideSlot(Trash2),
-  filterPanelRemoveAllIcon: lucideSlot(Trash2),
 };
 
-function BooleanFilterInput(props: { item: { value?: string; field: string; operator: string }; applyValue: (item: { value?: string; field: string; operator: string }) => void }) {
-  const { item, applyValue } = props;
+const BOOLEAN_FIELDS = ['hasNfo', 'hasPoster', 'hasFanart'];
+
+// Context to share boolean filter state with column menu items rendered inside the DataGrid.
+// MUI DataGrid Community only supports a single filterModel item, so we manage boolean
+// filters externally via this context.
+type BoolFilters = Record<string, string | undefined>;
+const BoolFilterContext = createContext<{
+  filters: BoolFilters;
+  setFilter: (field: string, value: string | undefined) => void;
+}>({ filters: {}, setFilter: () => {} });
+
+function BooleanFilterMenuItem(props: GridColumnMenuItemProps) {
+  const { colDef, onClick } = props;
   const { t } = useTranslation();
+  const { filters, setFilter } = useContext(BoolFilterContext);
+
+  if (!BOOLEAN_FIELDS.includes(colDef.field)) return null;
+
+  const currentValue = filters[colDef.field] ?? '';
+
+  const handleSelect = (value: string | undefined, event: React.MouseEvent) => {
+    setFilter(colDef.field, value);
+    onClick(event);
+  };
+
   return (
-    <Select
-      value={item.value ?? ''}
-      onChange={e => applyValue({ ...item, value: e.target.value || undefined })}
-      size="small"
-      fullWidth
-      displayEmpty
-      sx={{ mt: 1 }}
-    >
-      <MenuItem value="">{t('videos.filter.all')}</MenuItem>
-      <MenuItem value="true">{t('videos.filter.yes')}</MenuItem>
-      <MenuItem value="false">{t('videos.filter.no')}</MenuItem>
-    </Select>
+    <>
+      <Divider />
+      <MenuItem selected={!currentValue} onClick={e => handleSelect(undefined, e)}>
+        {t('videos.filter.all')}
+      </MenuItem>
+      <MenuItem selected={currentValue === 'true'} onClick={e => handleSelect('true', e)}>
+        {t('videos.filter.yes')}
+      </MenuItem>
+      <MenuItem selected={currentValue === 'false'} onClick={e => handleSelect('false', e)}>
+        {t('videos.filter.no')}
+      </MenuItem>
+    </>
   );
 }
-
-const booleanFilterOperators: GridFilterOperator[] = [
-  {
-    label: 'is',
-    value: 'is',
-    getApplyFilterFn: () => null,
-    InputComponent: BooleanFilterInput,
-  },
-];
 
 function readGridSettings(): {
   visibilityModel: GridColumnVisibilityModel;
@@ -373,6 +381,217 @@ function DeleteConfirmDialog({ open, count, onClose, onConfirm }: DeleteConfirmD
   );
 }
 
+// ── Advanced Filter ──────────────────────────────────────────────────────────
+
+type FieldType = 'boolean' | 'text' | 'number';
+
+interface FilterFieldDef {
+  key: string;
+  type: FieldType;
+}
+
+const ADVANCED_FILTER_FIELDS: FilterFieldDef[] = [
+  { key: 'hasNfo', type: 'boolean' },
+  { key: 'hasPoster', type: 'boolean' },
+  { key: 'hasFanart', type: 'boolean' },
+  { key: 'title', type: 'text' },
+  { key: 'originalTitle', type: 'text' },
+  { key: 'studioName', type: 'text' },
+  { key: 'fileName', type: 'text' },
+  { key: 'year', type: 'number' },
+  { key: 'runtime', type: 'number' },
+  { key: 'userRating', type: 'number' },
+  { key: 'directors', type: 'text' },
+  { key: 'genres', type: 'text' },
+  { key: 'tags', type: 'text' },
+  { key: 'mpaa', type: 'text' },
+  { key: 'premiered', type: 'text' },
+  { key: 'plot', type: 'text' },
+  { key: 'outline', type: 'text' },
+  { key: 'tagline', type: 'text' },
+  { key: 'credits', type: 'text' },
+  { key: 'countries', type: 'text' },
+  { key: 'setName', type: 'text' },
+  { key: 'dateAdded', type: 'text' },
+  { key: 'top250', type: 'number' },
+  { key: 'sortTitle', type: 'text' },
+];
+
+const TEXT_OPS = ['contains', 'equals', 'notequals', 'startswith', 'endswith', 'isempty', 'isnotempty'] as const;
+const NUMBER_OPS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'] as const;
+const BOOLEAN_OPS = ['is'] as const;
+const VALUE_LESS_OPS = new Set(['isempty', 'isnotempty']);
+
+function getOpsForType(type: FieldType) {
+  if (type === 'boolean') return BOOLEAN_OPS;
+  if (type === 'number') return NUMBER_OPS;
+  return TEXT_OPS;
+}
+
+function getDefaultOp(type: FieldType) {
+  if (type === 'boolean') return 'is';
+  if (type === 'number') return 'eq';
+  return 'contains';
+}
+
+function getDefaultValue(type: FieldType) {
+  if (type === 'boolean') return 'true';
+  return '';
+}
+
+interface AdvancedFilterRow {
+  id: number;
+  field: string;
+  op: string;
+  value: string;
+}
+
+interface AdvancedFilterPanelProps {
+  open: boolean;
+  rows: AdvancedFilterRow[];
+  logic: 'and' | 'or';
+  onRowsChange: (rows: AdvancedFilterRow[]) => void;
+  onLogicChange: (logic: 'and' | 'or') => void;
+  onApply: () => void;
+  onClear: () => void;
+  activeCount: number;
+}
+
+function AdvancedFilterPanel({
+  open, rows, logic, onRowsChange, onLogicChange, onApply, onClear, activeCount,
+}: AdvancedFilterPanelProps) {
+  const { t } = useTranslation();
+
+  if (!open) return null;
+
+  const addRow = () => {
+    const firstField = ADVANCED_FILTER_FIELDS[0];
+    onRowsChange([
+      ...rows,
+      { id: Date.now(), field: firstField.key, op: getDefaultOp(firstField.type), value: getDefaultValue(firstField.type) },
+    ]);
+  };
+
+  const removeRow = (id: number) => {
+    onRowsChange(rows.filter(r => r.id !== id));
+  };
+
+  const updateRow = (id: number, patch: Partial<AdvancedFilterRow>) => {
+    onRowsChange(rows.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, ...patch };
+      // When field changes, reset op and value to defaults for new field type
+      if (patch.field && patch.field !== r.field) {
+        const def = ADVANCED_FILTER_FIELDS.find(f => f.key === patch.field);
+        if (def) {
+          updated.op = getDefaultOp(def.type);
+          updated.value = getDefaultValue(def.type);
+        }
+      }
+      return updated;
+    }));
+  };
+
+  const getFieldLabel = (key: string) => {
+    // Try videos.columns first, then videoDetail.fields
+    const colKey = `videos.columns.${key === 'studioName' ? 'studio' : key === 'hasNfo' ? 'nfo' : key === 'hasPoster' ? 'poster' : key === 'hasFanart' ? 'fanart' : key === 'fileName' ? 'filename' : key}`;
+    const label = t(colKey);
+    return label !== colKey ? label : key;
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2, mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+        <Typography variant="subtitle2">{t('videos.advancedFilter.title')}</Typography>
+        <ToggleButtonGroup
+          value={logic}
+          exclusive
+          onChange={(_, v) => v && onLogicChange(v)}
+          size="small"
+        >
+          <ToggleButton value="and" sx={{ px: 1.5, py: 0.25, textTransform: 'none', fontSize: '0.8rem' }}>
+            {t('videos.advancedFilter.and')}
+          </ToggleButton>
+          <ToggleButton value="or" sx={{ px: 1.5, py: 0.25, textTransform: 'none', fontSize: '0.8rem' }}>
+            {t('videos.advancedFilter.or')}
+          </ToggleButton>
+        </ToggleButtonGroup>
+        <Box sx={{ flex: 1 }} />
+        {activeCount > 0 && (
+          <Chip label={t('videos.advancedFilter.activeCount', { count: activeCount })} size="small" color="primary" />
+        )}
+      </Box>
+
+      {rows.map(row => {
+        const fieldDef = ADVANCED_FILTER_FIELDS.find(f => f.key === row.field);
+        const fieldType = fieldDef?.type ?? 'text';
+        const ops = getOpsForType(fieldType);
+        const needsValue = !VALUE_LESS_OPS.has(row.op);
+
+        return (
+          <Box key={row.id} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+            <Select
+              value={row.field}
+              onChange={e => updateRow(row.id, { field: e.target.value })}
+              size="small"
+              sx={{ minWidth: 130 }}
+            >
+              {ADVANCED_FILTER_FIELDS.map(f => (
+                <MenuItem key={f.key} value={f.key}>{getFieldLabel(f.key)}</MenuItem>
+              ))}
+            </Select>
+            <Select
+              value={row.op}
+              onChange={e => updateRow(row.id, { op: e.target.value })}
+              size="small"
+              sx={{ minWidth: 120 }}
+            >
+              {ops.map(op => (
+                <MenuItem key={op} value={op}>{t(`videos.advancedFilter.ops.${op}`)}</MenuItem>
+              ))}
+            </Select>
+            {needsValue && fieldType === 'boolean' ? (
+              <Select
+                value={row.value}
+                onChange={e => updateRow(row.id, { value: e.target.value })}
+                size="small"
+                sx={{ minWidth: 100 }}
+              >
+                <MenuItem value="true">{t('videos.filter.yes')}</MenuItem>
+                <MenuItem value="false">{t('videos.filter.no')}</MenuItem>
+              </Select>
+            ) : needsValue ? (
+              <TextField
+                value={row.value}
+                onChange={e => updateRow(row.id, { value: e.target.value })}
+                size="small"
+                type={fieldType === 'number' ? 'number' : 'text'}
+                sx={{ minWidth: 120, flex: 1 }}
+              />
+            ) : null}
+            <IconButton size="small" onClick={() => removeRow(row.id)}>
+              <X size={16} />
+            </IconButton>
+          </Box>
+        );
+      })}
+
+      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+        <Button size="small" startIcon={<Plus size={16} />} onClick={addRow}>
+          {t('videos.advancedFilter.addCondition')}
+        </Button>
+        <Box sx={{ flex: 1 }} />
+        <Button size="small" onClick={onClear} disabled={rows.length === 0}>
+          {t('videos.advancedFilter.clear')}
+        </Button>
+        <Button size="small" variant="contained" onClick={onApply} startIcon={<Filter size={16} />}>
+          {t('videos.advancedFilter.apply')}
+        </Button>
+      </Box>
+    </Paper>
+  );
+}
+
 const FILE_MGMT_KEY = 'portrameta_file_management';
 
 export default function VideosPage() {
@@ -396,8 +615,18 @@ export default function VideosPage() {
     useState<GridColumnVisibilityModel>(() => readGridSettings().visibilityModel);
   const [columnWidthModel, setColumnWidthModel] =
     useState<Record<string, number>>(() => readGridSettings().widthModel);
-  const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
-  const filterModelRef = useRef<GridFilterModel>({ items: [] });
+
+  // Boolean quick-filter state (managed outside DataGrid because Community edition
+  // only supports a single filterModel item).
+  const [boolFilters, setBoolFilters] = useState<BoolFilters>({});
+  const boolFiltersRef = useRef<BoolFilters>({});
+
+  // Advanced filter state
+  const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
+  const [advancedRows, setAdvancedRows] = useState<AdvancedFilterRow[]>([]);
+  const [advancedLogic, setAdvancedLogic] = useState<'and' | 'or'>('and');
+  const [activeAdvancedFilters, setActiveAdvancedFilters] = useState<AdvancedFilterItem[]>([]);
+  const activeAdvancedFiltersRef = useRef<AdvancedFilterItem[]>([]);
 
   useEffect(() => {
     if (persistRef.current) {
@@ -428,21 +657,21 @@ export default function VideosPage() {
     try {
       const sortField = sort[0]?.field;
       const sortDir = sort[0]?.sort;
-      const filters = filterModelRef.current;
-      const boolFilter = (field: string): boolean | undefined => {
-        const item = filters.items.find(i => i.field === field);
-        if (!item?.value) return undefined;
-        return item.value === 'true';
-      };
+      const bf = boolFiltersRef.current;
+      const toBool = (v: string | undefined): boolean | undefined =>
+        v === 'true' ? true : v === 'false' ? false : undefined;
+      const advFilters = activeAdvancedFiltersRef.current;
       const res = await videosApi.getAll({
         search: searchValue || undefined,
         page: pageNum,
         page_size: PAGE_SIZE,
         sort_by: sortField,
         sort_desc: sortDir === 'desc' ? true : undefined,
-        has_nfo: boolFilter('hasNfo'),
-        has_poster: boolFilter('hasPoster'),
-        has_fanart: boolFilter('hasFanart'),
+        has_nfo: toBool(bf.hasNfo),
+        has_poster: toBool(bf.hasPoster),
+        has_fanart: toBool(bf.hasFanart),
+        filters: advFilters.length > 0 ? JSON.stringify(advFilters) : undefined,
+        filter_logic: advFilters.length > 0 ? advancedLogic : undefined,
       });
       if (res.success) setResult(res.data);
     } catch (err) {
@@ -481,9 +710,36 @@ export default function VideosPage() {
     load(search, 1, model);
   };
 
-  const handleFilterModelChange = (model: GridFilterModel) => {
-    setFilterModel(model);
-    filterModelRef.current = model;
+  const handleBoolFilterChange = useCallback((field: string, value: string | undefined) => {
+    const next = { ...boolFiltersRef.current, [field]: value };
+    boolFiltersRef.current = next;
+    setBoolFilters(next);
+    // Clear advanced filters when a quick filter is set
+    if (value) {
+      setActiveAdvancedFilters([]);
+      activeAdvancedFiltersRef.current = [];
+    }
+    setPage(1);
+    load(search, 1, sortModel);
+  }, [search, sortModel]);
+
+  const handleAdvancedApply = () => {
+    const valid = advancedRows
+      .filter(r => VALUE_LESS_OPS.has(r.op) || r.value.trim() !== '')
+      .map(r => ({ field: r.field, op: r.op, value: r.value }));
+    setActiveAdvancedFilters(valid);
+    activeAdvancedFiltersRef.current = valid;
+    // Clear quick boolean filters when advanced filter is applied
+    setBoolFilters({});
+    boolFiltersRef.current = {};
+    setPage(1);
+    load(search, 1, sortModel);
+  };
+
+  const handleAdvancedClear = () => {
+    setAdvancedRows([]);
+    setActiveAdvancedFilters([]);
+    activeAdvancedFiltersRef.current = [];
     setPage(1);
     load(search, 1, sortModel);
   };
@@ -539,6 +795,13 @@ export default function VideosPage() {
 
   const pageCount = result ? Math.ceil(result.total / PAGE_SIZE) : 0;
 
+  const boolHeaderName = (field: string, label: string) => {
+    const value = boolFilters[field];
+    if (!value) return label;
+    const suffix = value === 'true' ? t('videos.filter.yesShort') : t('videos.filter.noShort');
+    return `${label} (${suffix})`;
+  };
+
   const dataColumns: GridColDef<VideoFile>[] = [
     {
       field: 'fileName',
@@ -573,33 +836,33 @@ export default function VideosPage() {
     },
     {
       field: 'hasNfo',
-      headerName: t('videos.columns.nfo'),
+      headerName: boolHeaderName('hasNfo', t('videos.columns.nfo')),
       minWidth: 80,
       width: columnWidthModel.hasNfo ?? COLUMN_DEFAULT_WIDTHS.hasNfo,
       sortable: false,
-      filterOperators: booleanFilterOperators,
+      filterable: false,
       renderCell: params => (
         <Chip label={params.row.hasNfo ? '✓' : '✗'} color={params.row.hasNfo ? 'success' : 'default'} size="small" />
       ),
     },
     {
       field: 'hasPoster',
-      headerName: t('videos.columns.poster'),
+      headerName: boolHeaderName('hasPoster', t('videos.columns.poster')),
       minWidth: 80,
       width: columnWidthModel.hasPoster ?? COLUMN_DEFAULT_WIDTHS.hasPoster,
       sortable: false,
-      filterOperators: booleanFilterOperators,
+      filterable: false,
       renderCell: params => (
         <Chip label={params.row.hasPoster ? '✓' : '✗'} color={params.row.hasPoster ? 'success' : 'default'} size="small" />
       ),
     },
     {
       field: 'hasFanart',
-      headerName: t('videos.columns.fanart'),
+      headerName: boolHeaderName('hasFanart', t('videos.columns.fanart')),
       minWidth: 90,
       width: columnWidthModel.hasFanart ?? COLUMN_DEFAULT_WIDTHS.hasFanart,
       sortable: false,
-      filterOperators: booleanFilterOperators,
+      filterable: false,
       renderCell: params => (
         <Chip label={params.row.hasFanart ? '✓' : '✗'} color={params.row.hasFanart ? 'success' : 'default'} size="small" />
       ),
@@ -822,6 +1085,19 @@ export default function VideosPage() {
                 )}
               </>
             )}
+            <IconButton
+              size="small"
+              onClick={() => setAdvancedFilterOpen(prev => !prev)}
+              color={activeAdvancedFilters.length > 0 ? 'primary' : 'default'}
+            >
+              <SlidersHorizontal size={18} />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={e => setFieldMenuAnchor(e.currentTarget)}
+            >
+              <Columns3 size={18} />
+            </IconButton>
             <TextField
               label={t('videos.search')}
               size="small"
@@ -831,6 +1107,17 @@ export default function VideosPage() {
             />
           </Box>
         </Box>
+
+        <AdvancedFilterPanel
+          open={advancedFilterOpen}
+          rows={advancedRows}
+          logic={advancedLogic}
+          onRowsChange={setAdvancedRows}
+          onLogicChange={setAdvancedLogic}
+          onApply={handleAdvancedApply}
+          onClear={handleAdvancedClear}
+          activeCount={activeAdvancedFilters.length}
+        />
       </Box>
 
       <Menu
@@ -853,27 +1140,14 @@ export default function VideosPage() {
         ))}
       </Menu>
 
-      {loading ? (
+      {!result && loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
         </Box>
       ) : (
         <>
-          <Box sx={{ height: 'calc(100vh - 180px)', minHeight: 400, width: '100%', minWidth: 0, overflowX: 'hidden', position: 'relative' }}>
-            <IconButton
-              size="small"
-              onClick={e => setFieldMenuAnchor(e.currentTarget)}
-              sx={{
-                position: 'absolute',
-                top: 4,
-                right: 4,
-                zIndex: 2,
-                backgroundColor: 'background.paper',
-                '&:hover': { backgroundColor: 'action.hover' },
-              }}
-            >
-              <MoreVertical size={18} />
-            </IconButton>
+          <BoolFilterContext.Provider value={{ filters: boolFilters, setFilter: handleBoolFilterChange }}>
+          <Box sx={{ height: 'calc(100vh - 180px)', minHeight: 400, width: '100%', minWidth: 0, overflowX: 'hidden' }}>
             <DataGrid
               rows={result?.items ?? []}
               columns={columns}
@@ -902,6 +1176,12 @@ export default function VideosPage() {
           })}
               getRowId={row => row.id}
               slots={dataGridSlots}
+              slotProps={{
+                columnMenu: {
+                  slots: { booleanFilterItem: BooleanFilterMenuItem },
+                  slotProps: { booleanFilterItem: { displayOrder: 15 } },
+                },
+              }}
               columnVisibilityModel={columnVisibilityModel}
               onColumnVisibilityModelChange={setColumnVisibilityModel}
               onColumnWidthChange={params => {
@@ -918,9 +1198,7 @@ export default function VideosPage() {
               sortingMode="server"
               sortModel={sortModel}
               onSortModelChange={handleSortModelChange}
-              filterMode="server"
-              filterModel={filterModel}
-              onFilterModelChange={handleFilterModelChange}
+              disableColumnFilter
               localeText={{
                 noRowsLabel: t('videos.empty'),
               }}
@@ -931,6 +1209,7 @@ export default function VideosPage() {
               }}
             />
           </Box>
+          </BoolFilterContext.Provider>
 
           {result && pageCount > 1 && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
