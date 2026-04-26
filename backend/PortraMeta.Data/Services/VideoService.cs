@@ -11,7 +11,7 @@ using PortraMeta.Data.Utilities;
 
 namespace PortraMeta.Data.Services;
 
-public class VideoService(AppDbContext db, INfoService nfoService, ILogger<VideoService> logger) : IVideoService
+public class VideoService(AppDbContext db, INfoService nfoService, IMediaInfoService mediaInfoService, ILogger<VideoService> logger) : IVideoService
 {
     private const long MaxPosterBytes = 10 * 1024 * 1024;
     private static readonly HashSet<string> AllowedMimeTypes =
@@ -445,6 +445,17 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         // Clean up orphaned studios and actors no longer referenced by any video
         await CleanupOrphanedEntitiesAsync(ct);
 
+        // Auto-probe MediaInfo if not yet available (e.g. mediainfo was not installed during scan)
+        if (v.DurationSeconds is null)
+        {
+            var mediaInfo = await mediaInfoService.ProbeAsync(v.FilePath, ct);
+            if (mediaInfo is not null)
+            {
+                ApplyMediaInfo(v, mediaInfo);
+                await db.SaveChangesAsync(ct);
+            }
+        }
+
         var dto = ToDto(v);
         await nfoService.WriteAsync(FileSystemScanner.NfoPath(v.FilePath), dto, ct);
 
@@ -706,6 +717,14 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
                 if (request.Top250 is not null) v.Top250 = request.Top250;
                 v.NfoUpdatedAt = DateTime.UtcNow;
 
+                // Auto-probe MediaInfo if not yet available
+                if (v.DurationSeconds is null)
+                {
+                    var mediaInfo = await mediaInfoService.ProbeAsync(v.FilePath, ct);
+                    if (mediaInfo is not null)
+                        ApplyMediaInfo(v, mediaInfo);
+                }
+
                 await db.SaveChangesAsync(ct);
 
                 var dto = ToDto(v);
@@ -938,6 +957,20 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             return true;
 
         return false;
+    }
+
+    private static void ApplyMediaInfo(VideoFile v, MediaInfoResult info)
+    {
+        v.DurationSeconds = info.DurationSeconds;
+        v.VideoCodec = info.VideoCodec;
+        v.AudioCodec = info.AudioCodec;
+        v.Width = info.Width;
+        v.Height = info.Height;
+        v.FrameRate = info.FrameRate;
+        v.BitRate = info.BitRate;
+
+        if (v.Runtime is null && info.DurationSeconds is not null)
+            v.Runtime = (int)Math.Round(info.DurationSeconds.Value / 60.0);
     }
 
     private static void DeleteFileIfExists(string path)

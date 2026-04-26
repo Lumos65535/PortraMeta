@@ -175,6 +175,44 @@ public class LibraryService(
             var studioCache = await db.Studios.ToDictionaryAsync(s => s.Name, ct);
             var actorCache = await db.Actors.ToDictionaryAsync(a => a.Name, ct);
 
+            // Phase 1: Parallel MediaInfo probing for files that need it
+            var filePaths = videoFiles.Select(f => Path.GetFullPath(f.FullName)).ToList();
+            var pathsNeedingProbe = new HashSet<string>();
+
+            foreach (var fp in filePaths)
+            {
+                if (existingFiles.TryGetValue(fp, out var ex))
+                {
+                    if (ex.DurationSeconds is null) pathsNeedingProbe.Add(fp);
+                }
+                else
+                {
+                    pathsNeedingProbe.Add(fp); // new file
+                }
+            }
+
+            var mediaInfoResults = new ConcurrentDictionary<string, MediaInfoResult>();
+            if (pathsNeedingProbe.Count > 0)
+            {
+                ScanProgress[id] = new ScanProgressDto("probing", 0, pathsNeedingProbe.Count, scanStartedAt, true);
+                int probed = 0;
+
+                await Parallel.ForEachAsync(pathsNeedingProbe,
+                    new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct },
+                    async (path, token) =>
+                    {
+                        var result = await mediaInfoService.ProbeAsync(path, token);
+                        if (result is not null)
+                            mediaInfoResults[path] = result;
+                        var count = Interlocked.Increment(ref probed);
+                        if (count % 10 == 0)
+                            ScanProgress[id] = new ScanProgressDto("probing", count, pathsNeedingProbe.Count, scanStartedAt, true);
+                    });
+
+                ScanProgress[id] = new ScanProgressDto("probing", pathsNeedingProbe.Count, pathsNeedingProbe.Count, scanStartedAt, true);
+            }
+
+            // Phase 2: Sequential DB + NFO processing (EF Core is not thread-safe)
             var newEntities = new List<VideoFile>();
             int updated = 0;
             int skipped = 0;
@@ -185,7 +223,7 @@ public class LibraryService(
             {
                 ct.ThrowIfCancellationRequested();
                 processed++;
-                if (processed % 50 == 0)
+                if (processed % 10 == 0 || processed == videoFiles.Count)
                     ScanProgress[id] = new ScanProgressDto("processing", processed, videoFiles.Count, scanStartedAt, true);
 
                 var fullPath = Path.GetFullPath(file.FullName);
@@ -213,16 +251,12 @@ public class LibraryService(
                     existing.HasFanart = hasFanart;
                     existing.FileModifiedAt ??= file.LastWriteTimeUtc;
 
-                    if (existing.DurationSeconds is null)
+                    if (existing.DurationSeconds is null && mediaInfoResults.TryGetValue(fullPath, out var mediaInfo))
                     {
-                        var mediaInfo = await mediaInfoService.ProbeAsync(fullPath, ct);
-                        if (mediaInfo is not null)
-                        {
-                            ApplyMediaInfo(existing, mediaInfo);
-                            if (hasNfo)
-                                await nfoService.WriteFileInfoAsync(FileSystemScanner.NfoPath(fullPath), mediaInfo, ct);
-                            flagChanged = true;
-                        }
+                        ApplyMediaInfo(existing, mediaInfo);
+                        if (hasNfo)
+                            await nfoService.WriteFileInfoAsync(FileSystemScanner.NfoPath(fullPath), mediaInfo, ct);
+                        flagChanged = true;
                     }
 
                     if (needsNfoParse)
@@ -296,8 +330,7 @@ public class LibraryService(
                     FileModifiedAt = file.LastWriteTimeUtc
                 };
 
-                var probeResult = await mediaInfoService.ProbeAsync(fullPath, ct);
-                if (probeResult is not null)
+                if (mediaInfoResults.TryGetValue(fullPath, out var probeResult))
                 {
                     ApplyMediaInfo(videoFile, probeResult);
                     if (hasNfo)

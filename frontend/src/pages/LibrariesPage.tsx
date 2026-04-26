@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, Divider, FormControlLabel, IconButton,
@@ -9,7 +9,7 @@ import {
 import { Trash2, RefreshCw, MoreVertical, FolderMinus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { librariesApi } from '../api/libraries';
-import type { Library } from '../api/libraries';
+import type { Library, ScanProgress } from '../api/libraries';
 import { useNotify } from '../contexts/NotifyContext';
 
 // ── Excluded Folders Dialog ────────────────────────────────────────────────
@@ -148,6 +148,8 @@ export default function LibrariesPage() {
 
   // Scan state
   const [scanningLib, setScanningLib] = useState<Library | null>(null);
+  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Three-dot menu
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -201,8 +203,33 @@ export default function LibrariesPage() {
     }
   };
 
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    setScanProgress(null);
+  }, []);
+
+  const startPolling = useCallback((libId: number) => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await librariesApi.getScanStatus(libId);
+        if (res.success && res.data?.isRunning) {
+          setScanProgress(res.data);
+        }
+      } catch { /* ignore polling errors */ }
+    }, 500);
+  }, [stopPolling]);
+
+  // Cleanup polling on unmount
+  useEffect(() => () => stopPolling(), [stopPolling]);
+
   const handleScan = async (lib: Library) => {
     setScanningLib(lib);
+    setScanProgress(null);
+    startPolling(lib.id);
     try {
       const res = await librariesApi.scan(lib.id);
       if (res.success) {
@@ -214,6 +241,7 @@ export default function LibrariesPage() {
     } catch (err) {
       notify((err as Error).message, 'error');
     } finally {
+      stopPolling();
       setScanningLib(null);
     }
   };
@@ -232,7 +260,11 @@ export default function LibrariesPage() {
 
   return (
     <Box>
-      {isScanning && <LinearProgress sx={{ mb: 0 }} />}
+      {isScanning && (
+        scanProgress && scanProgress.total > 0
+          ? <LinearProgress variant="determinate" value={Math.round((scanProgress.processed / scanProgress.total) * 100)} sx={{ mb: 0 }} />
+          : <LinearProgress sx={{ mb: 0 }} />
+      )}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, mt: isScanning ? 1 : 0 }}>
         <Typography variant="h5">{t('libraries.title')}</Typography>
@@ -248,6 +280,14 @@ export default function LibrariesPage() {
           sx={{ mb: 2 }}
         >
           {t('libraries.scanning', { name: scanningLib.name })}
+          {scanProgress && (
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              {scanProgress.phase === 'enumerating' && t('libraries.scanPhaseEnumerating')}
+              {scanProgress.phase === 'probing' && t('libraries.scanPhaseProbing', { processed: scanProgress.processed, total: scanProgress.total })}
+              {scanProgress.phase === 'processing' && t('libraries.scanPhaseProcessing', { processed: scanProgress.processed, total: scanProgress.total })}
+              {scanProgress.phase === 'saving' && t('libraries.scanPhaseSaving')}
+            </Typography>
+          )}
         </Alert>
       )}
 

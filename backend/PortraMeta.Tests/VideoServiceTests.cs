@@ -12,13 +12,15 @@ public class VideoServiceTests : IDisposable
     private readonly AppDbContext _db;
     private readonly Microsoft.Data.Sqlite.SqliteConnection _conn;
     private readonly INfoService _nfoService;
+    private readonly IMediaInfoService _mediaInfoService;
     private readonly VideoService _svc;
 
     public VideoServiceTests()
     {
         (_db, _conn) = Helpers.TestDbContext.Create();
         _nfoService = Substitute.For<INfoService>();
-        _svc = new VideoService(_db, _nfoService, NullLogger<VideoService>.Instance);
+        _mediaInfoService = Substitute.For<IMediaInfoService>();
+        _svc = new VideoService(_db, _nfoService, _mediaInfoService, NullLogger<VideoService>.Instance);
     }
 
     public void Dispose()
