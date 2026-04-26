@@ -54,6 +54,7 @@ builder.Services.AddScoped<IVideoService, VideoService>();
 builder.Services.AddScoped<INfoParser, NfoParser>();
 builder.Services.AddScoped<INfoService, NfoService>();
 builder.Services.AddSingleton<FileSystemScanner>();
+builder.Services.AddSingleton<IMediaInfoService, MediaInfoService>();
 
 // CORS — supports AllowAnyOrigin flag (for local/desktop mode) or a comma-separated
 // list of allowed origins. Falls back to legacy "Cors:AllowedOrigin" for compatibility.

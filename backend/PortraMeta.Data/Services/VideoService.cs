@@ -112,6 +112,16 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             ("setName", true)         => query.OrderBy(v => v.SetName == null ? 1 : 0).ThenByDescending(v => v.SetName),
             ("dateAdded", false)      => query.OrderBy(v => v.DateAdded == null ? 1 : 0).ThenBy(v => v.DateAdded),
             ("dateAdded", true)       => query.OrderBy(v => v.DateAdded == null ? 1 : 0).ThenByDescending(v => v.DateAdded),
+            ("durationSeconds", false) => query.OrderBy(v => v.DurationSeconds == null ? 1 : 0).ThenBy(v => v.DurationSeconds),
+            ("durationSeconds", true)  => query.OrderBy(v => v.DurationSeconds == null ? 1 : 0).ThenByDescending(v => v.DurationSeconds),
+            ("videoCodec", false)     => query.OrderBy(v => v.VideoCodec == null ? 1 : 0).ThenBy(v => v.VideoCodec),
+            ("videoCodec", true)      => query.OrderBy(v => v.VideoCodec == null ? 1 : 0).ThenByDescending(v => v.VideoCodec),
+            ("audioCodec", false)     => query.OrderBy(v => v.AudioCodec == null ? 1 : 0).ThenBy(v => v.AudioCodec),
+            ("audioCodec", true)      => query.OrderBy(v => v.AudioCodec == null ? 1 : 0).ThenByDescending(v => v.AudioCodec),
+            ("width", false)          => query.OrderBy(v => v.Width == null ? 1 : 0).ThenBy(v => v.Width),
+            ("width", true)           => query.OrderBy(v => v.Width == null ? 1 : 0).ThenByDescending(v => v.Width),
+            ("bitRate", false)        => query.OrderBy(v => v.BitRate == null ? 1 : 0).ThenBy(v => v.BitRate),
+            ("bitRate", true)         => query.OrderBy(v => v.BitRate == null ? 1 : 0).ThenByDescending(v => v.BitRate),
             ("fileName", true)        => query.OrderByDescending(v => v.FileName),
             _                         => query.OrderBy(v => v.FileName),
         };
@@ -127,7 +137,8 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
                 v.DirectorsJson, v.GenresJson, v.Runtime, v.Mpaa, v.Premiered,
                 v.RatingsJson, v.UserRating, v.UniqueIdsJson, v.TagsJson, v.SortTitle,
                 v.Outline, v.Tagline, v.CreditsJson, v.CountriesJson,
-                v.SetName, v.DateAdded, v.Top250
+                v.SetName, v.DateAdded, v.Top250,
+                v.DurationSeconds, v.VideoCodec, v.AudioCodec, v.Width, v.Height, v.FrameRate, v.BitRate
             })
             .ToListAsync(ct);
 
@@ -147,7 +158,9 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             Outline: v.Outline, Tagline: v.Tagline,
             Credits: DeserializeList(v.CreditsJson),
             Countries: DeserializeList(v.CountriesJson),
-            SetName: v.SetName, DateAdded: v.DateAdded, Top250: v.Top250
+            SetName: v.SetName, DateAdded: v.DateAdded, Top250: v.Top250,
+            DurationSeconds: v.DurationSeconds, VideoCodec: v.VideoCodec, AudioCodec: v.AudioCodec,
+            Width: v.Width, Height: v.Height, FrameRate: v.FrameRate, BitRate: v.BitRate
         )).ToList();
 
         logger.LogDebug("GetAll videos: page={Page}, pageSize={PageSize}, total={Total}", page, pageSize, total);
@@ -374,7 +387,6 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
         // Extended NFO fields
         v.DirectorsJson = SerializeList(request.Directors);
         v.GenresJson = SerializeList(request.Genres);
-        v.Runtime = request.Runtime;
         v.Mpaa = request.Mpaa;
         v.Premiered = request.Premiered;
         v.RatingsJson = request.Ratings is { Count: > 0 }
@@ -680,7 +692,6 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
                 }
                 if (request.Directors is not null) v.DirectorsJson = SerializeList(request.Directors);
                 if (request.Genres is not null) v.GenresJson = SerializeList(request.Genres);
-                if (request.Runtime is not null) v.Runtime = request.Runtime;
                 if (request.Mpaa is not null) v.Mpaa = request.Mpaa;
                 if (request.Premiered is not null) v.Premiered = request.Premiered;
                 if (request.UserRating is not null) v.UserRating = request.UserRating;
@@ -974,7 +985,14 @@ public class VideoService(AppDbContext db, INfoService nfoService, ILogger<Video
             Countries: DeserializeList(v.CountriesJson),
             SetName: v.SetName,
             DateAdded: v.DateAdded,
-            Top250: v.Top250
+            Top250: v.Top250,
+            DurationSeconds: v.DurationSeconds,
+            VideoCodec: v.VideoCodec,
+            AudioCodec: v.AudioCodec,
+            Width: v.Width,
+            Height: v.Height,
+            FrameRate: v.FrameRate,
+            BitRate: v.BitRate
         );
     }
 

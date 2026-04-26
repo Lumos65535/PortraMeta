@@ -86,7 +86,8 @@
       "directors": "导演",
       "genres": "类型",
       "tags": "标签",
-      "runtime": "时长",
+      "durationHMS": "时长 (时:分:秒)",
+      "durationMS": "时长 (分:秒)",
       "mpaa": "分级",
       "premiered": "上映日期",
       "userRating": "用户评分",
@@ -96,7 +97,11 @@
       "setName": "合集",
       "dateAdded": "入库时间",
       "scannedAt": "扫描时间",
-      "fileModifiedAt": "文件日期"
+      "fileModifiedAt": "文件日期",
+      "videoCodec": "视频编码",
+      "audioCodec": "音频编码",
+      "resolution": "分辨率",
+      "bitRate": "码率"
     }
   },
   "videoDetail": {
@@ -166,6 +171,12 @@
       "nfo": "NFO",
       "poster": "海报",
       "fanart": "Fanart",
+      "duration": "时长",
+      "resolution": "分辨率",
+      "videoCodec": "视频编码",
+      "audioCodec": "音频编码",
+      "bitRate": "码率",
+      "frameRate": "帧率",
       "title": "标题",
       "year": "年份",
       "originalTitle": "原标题",
@@ -173,7 +184,6 @@
       "plot": "简介",
       "directors": "导演",
       "genres": "类型",
-      "runtime": "时长",
       "mpaa": "分级",
       "premiered": "上映日期",
       "ratings": "评分",

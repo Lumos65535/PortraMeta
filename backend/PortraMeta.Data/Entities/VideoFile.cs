@@ -46,6 +46,15 @@ public class VideoFile
     public string? DateAdded { get; set; }
     public int? Top250 { get; set; }
 
+    // Media info (from mediainfo CLI)
+    public double? DurationSeconds { get; set; }
+    public string? VideoCodec { get; set; }
+    public string? AudioCodec { get; set; }
+    public int? Width { get; set; }
+    public int? Height { get; set; }
+    public double? FrameRate { get; set; }
+    public long? BitRate { get; set; }
+
     public DateTime ScannedAt { get; set; } = DateTime.UtcNow;
     public DateTime? NfoUpdatedAt { get; set; }
     public DateTime? FileModifiedAt { get; set; }

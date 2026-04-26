@@ -45,7 +45,8 @@ const DEFAULT_VISIBILITY: GridColumnVisibilityModel = {
   directors: false,
   genres: false,
   tags: false,
-  runtime: false,
+  durationHMS: false,
+  durationMS: false,
   mpaa: false,
   premiered: false,
   userRating: false,
@@ -56,6 +57,10 @@ const DEFAULT_VISIBILITY: GridColumnVisibilityModel = {
   dateAdded: false,
   scannedAt: false,
   fileModifiedAt: false,
+  videoCodec: false,
+  audioCodec: false,
+  resolution: false,
+  bitRate: false,
 };
 
 const COLUMN_DEFAULT_WIDTHS: Record<string, number> = {
@@ -76,7 +81,8 @@ const COLUMN_DEFAULT_WIDTHS: Record<string, number> = {
   directors: 200,
   genres: 200,
   tags: 200,
-  runtime: 100,
+  durationHMS: 120,
+  durationMS: 100,
   mpaa: 100,
   premiered: 140,
   userRating: 120,
@@ -87,6 +93,10 @@ const COLUMN_DEFAULT_WIDTHS: Record<string, number> = {
   dateAdded: 180,
   scannedAt: 200,
   fileModifiedAt: 200,
+  videoCodec: 120,
+  audioCodec: 120,
+  resolution: 140,
+  bitRate: 120,
 };
 
 function formatBytes(bytes: number) {
@@ -249,7 +259,6 @@ const BATCH_FIELDS: BatchField[] = [
   { key: 'directors', type: 'comma' },
   { key: 'genres', type: 'comma' },
   { key: 'tags', type: 'comma' },
-  { key: 'runtime', type: 'number', sm: 4 },
   { key: 'mpaa', type: 'text', sm: 4 },
   { key: 'premiered', type: 'text', sm: 4 },
   { key: 'userRating', type: 'number', sm: 4 },
@@ -998,12 +1007,47 @@ export default function VideosPage() {
       valueGetter: (_value, row) => row.tags?.join(', ') ?? '—',
     },
     {
-      field: 'runtime',
-      headerName: t('videos.columns.runtime'),
-      minWidth: 80,
-      width: columnWidthModel.runtime ?? COLUMN_DEFAULT_WIDTHS.runtime,
+      field: 'durationHMS',
+      headerName: t('videos.columns.durationHMS'),
+      minWidth: 100,
+      width: columnWidthModel.durationHMS ?? COLUMN_DEFAULT_WIDTHS.durationHMS,
       filterable: false,
-      valueGetter: (_value, row) => row.runtime != null ? `${row.runtime} min` : '—',
+      sortable: true,
+      sortComparator: (a, b) => {
+        if (a === '—' && b === '—') return 0;
+        if (a === '—') return 1;
+        if (b === '—') return -1;
+        return String(a).localeCompare(String(b));
+      },
+      valueGetter: (_value, row) => {
+        if (row.durationSeconds == null) return '—';
+        const total = Math.round(row.durationSeconds);
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        const s = total % 60;
+        return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      },
+    },
+    {
+      field: 'durationMS',
+      headerName: t('videos.columns.durationMS'),
+      minWidth: 80,
+      width: columnWidthModel.durationMS ?? COLUMN_DEFAULT_WIDTHS.durationMS,
+      filterable: false,
+      sortable: true,
+      sortComparator: (a, b) => {
+        if (a === '—' && b === '—') return 0;
+        if (a === '—') return 1;
+        if (b === '—') return -1;
+        return String(a).localeCompare(String(b));
+      },
+      valueGetter: (_value, row) => {
+        if (row.durationSeconds == null) return '—';
+        const total = Math.round(row.durationSeconds);
+        const m = Math.floor(total / 60);
+        const s = total % 60;
+        return `${m}:${String(s).padStart(2, '0')}`;
+      },
     },
     {
       field: 'mpaa',
@@ -1068,6 +1112,50 @@ export default function VideosPage() {
       width: columnWidthModel.dateAdded ?? COLUMN_DEFAULT_WIDTHS.dateAdded,
       filterable: false,
       valueGetter: (_value, row) => row.dateAdded ?? '—',
+    },
+    {
+      field: 'videoCodec',
+      headerName: t('videos.columns.videoCodec'),
+      minWidth: 100,
+      width: columnWidthModel.videoCodec ?? COLUMN_DEFAULT_WIDTHS.videoCodec,
+      filterable: false,
+      valueGetter: (_value, row) => row.videoCodec ?? '—',
+    },
+    {
+      field: 'audioCodec',
+      headerName: t('videos.columns.audioCodec'),
+      minWidth: 100,
+      width: columnWidthModel.audioCodec ?? COLUMN_DEFAULT_WIDTHS.audioCodec,
+      filterable: false,
+      valueGetter: (_value, row) => row.audioCodec ?? '—',
+    },
+    {
+      field: 'resolution',
+      headerName: t('videos.columns.resolution'),
+      minWidth: 110,
+      width: columnWidthModel.resolution ?? COLUMN_DEFAULT_WIDTHS.resolution,
+      filterable: false,
+      sortable: true,
+      sortComparator: (a, b) => {
+        if (a === '—' && b === '—') return 0;
+        if (a === '—') return 1;
+        if (b === '—') return -1;
+        return String(a).localeCompare(String(b));
+      },
+      valueGetter: (_value, row) =>
+        row.width != null && row.height != null ? `${row.width}×${row.height}` : '—',
+    },
+    {
+      field: 'bitRate',
+      headerName: t('videos.columns.bitRate'),
+      minWidth: 100,
+      width: columnWidthModel.bitRate ?? COLUMN_DEFAULT_WIDTHS.bitRate,
+      filterable: false,
+      valueGetter: (_value, row) => {
+        if (row.bitRate == null) return '—';
+        const mbps = row.bitRate / 1_000_000;
+        return mbps >= 1 ? `${mbps.toFixed(1)} Mbps` : `${(row.bitRate / 1000).toFixed(0)} Kbps`;
+      },
     },
   ];
 

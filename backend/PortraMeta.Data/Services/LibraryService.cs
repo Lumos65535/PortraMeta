@@ -13,6 +13,8 @@ public class LibraryService(
     AppDbContext db,
     FileSystemScanner scanner,
     INfoParser nfoParser,
+    INfoService nfoService,
+    IMediaInfoService mediaInfoService,
     ILogger<LibraryService> logger) : ILibraryService
 {
     // Per-library scan lock to prevent concurrent scans of the same library
@@ -211,6 +213,18 @@ public class LibraryService(
                     existing.HasFanart = hasFanart;
                     existing.FileModifiedAt ??= file.LastWriteTimeUtc;
 
+                    if (existing.DurationSeconds is null)
+                    {
+                        var mediaInfo = await mediaInfoService.ProbeAsync(fullPath, ct);
+                        if (mediaInfo is not null)
+                        {
+                            ApplyMediaInfo(existing, mediaInfo);
+                            if (hasNfo)
+                                await nfoService.WriteFileInfoAsync(FileSystemScanner.NfoPath(fullPath), mediaInfo, ct);
+                            flagChanged = true;
+                        }
+                    }
+
                     if (needsNfoParse)
                     {
                         var nfoData = await nfoParser.ParseAsync(FileSystemScanner.NfoPath(fullPath), ct);
@@ -281,6 +295,14 @@ public class LibraryService(
                     ScannedAt = DateTime.UtcNow,
                     FileModifiedAt = file.LastWriteTimeUtc
                 };
+
+                var probeResult = await mediaInfoService.ProbeAsync(fullPath, ct);
+                if (probeResult is not null)
+                {
+                    ApplyMediaInfo(videoFile, probeResult);
+                    if (hasNfo)
+                        await nfoService.WriteFileInfoAsync(FileSystemScanner.NfoPath(fullPath), probeResult, ct);
+                }
 
                 if (videoFile.HasNfo)
                 {
@@ -397,6 +419,21 @@ public class LibraryService(
         v.SetName = nfo.Set;
         v.DateAdded = nfo.DateAdded;
         v.Top250 = nfo.Top250;
+    }
+
+    private static void ApplyMediaInfo(VideoFile v, MediaInfoResult info)
+    {
+        v.DurationSeconds = info.DurationSeconds;
+        v.VideoCodec = info.VideoCodec;
+        v.AudioCodec = info.AudioCodec;
+        v.Width = info.Width;
+        v.Height = info.Height;
+        v.FrameRate = info.FrameRate;
+        v.BitRate = info.BitRate;
+
+        // Auto-fill Runtime (minutes) from precise duration if not already set via NFO
+        if (v.Runtime is null && info.DurationSeconds is not null)
+            v.Runtime = (int)Math.Round(info.DurationSeconds.Value / 60.0);
     }
 
     private async Task CleanupOrphanedEntitiesAsync(CancellationToken ct)

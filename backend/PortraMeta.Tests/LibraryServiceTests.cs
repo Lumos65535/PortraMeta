@@ -22,7 +22,9 @@ public class LibraryServiceTests : IDisposable
         _tempDir = Path.Combine(Path.GetTempPath(), "portrameta_test_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDir);
         _nfoParser = Substitute.For<INfoParser>();
-        _svc = new LibraryService(_db, new FileSystemScanner(), _nfoParser, NullLogger<LibraryService>.Instance);
+        var nfoService = Substitute.For<INfoService>();
+        var mediaInfoService = Substitute.For<IMediaInfoService>();
+        _svc = new LibraryService(_db, new FileSystemScanner(), _nfoParser, nfoService, mediaInfoService, NullLogger<LibraryService>.Instance);
     }
 
     public void Dispose()

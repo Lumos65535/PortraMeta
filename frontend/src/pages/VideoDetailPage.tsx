@@ -55,7 +55,6 @@ interface EditState {
   // Extended fields
   directors: string;
   genres: string;
-  runtime: string;
   mpaa: string;
   premiered: string;
   ratings: RatingEditState[];
@@ -82,7 +81,6 @@ function toEditState(v: VideoFile): EditState {
     actors: (v.actors ?? []).map(a => ({ name: a.name, role: a.role ?? '' })),
     directors: v.directors?.join(', ') ?? '',
     genres: v.genres?.join(', ') ?? '',
-    runtime: v.runtime?.toString() ?? '',
     mpaa: v.mpaa ?? '',
     premiered: v.premiered ?? '',
     ratings: (v.ratings ?? []).map(r => ({
@@ -639,7 +637,6 @@ export default function VideoDetailPage() {
           .map((a, i) => ({ name: a.name.trim(), role: a.role.trim() || null, order: i })),
         directors: splitComma(form.directors),
         genres: splitComma(form.genres),
-        runtime: form.runtime ? parseInt(form.runtime, 10) : null,
         mpaa: form.mpaa || null,
         premiered: form.premiered || null,
         ratings: form.ratings
@@ -864,6 +861,60 @@ export default function VideoDetailPage() {
                   <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.fanart')}</Typography>
                   <Chip label={video.hasFanart ? t('videoDetail.exists') : t('videoDetail.missing')} color={video.hasFanart ? 'success' : 'default'} size="small" />
                 </Grid>
+                {(video.durationSeconds != null || video.videoCodec != null) && (
+                  <>
+                    {video.durationSeconds != null && (
+                      <Grid size={{ xs: 6, sm: 3 }}>
+                        <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.duration')}</Typography>
+                        <Typography variant="body2">
+                          {(() => {
+                            const total = Math.round(video.durationSeconds!);
+                            const h = Math.floor(total / 3600);
+                            const m = Math.floor((total % 3600) / 60);
+                            const s = total % 60;
+                            return h > 0
+                              ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+                              : `${m}:${String(s).padStart(2, '0')}`;
+                          })()}
+                        </Typography>
+                      </Grid>
+                    )}
+                    {video.width != null && video.height != null && (
+                      <Grid size={{ xs: 6, sm: 3 }}>
+                        <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.resolution')}</Typography>
+                        <Typography variant="body2">{video.width}×{video.height}</Typography>
+                      </Grid>
+                    )}
+                    {video.videoCodec != null && (
+                      <Grid size={{ xs: 6, sm: 3 }}>
+                        <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.videoCodec')}</Typography>
+                        <Typography variant="body2">{video.videoCodec}</Typography>
+                      </Grid>
+                    )}
+                    {video.audioCodec != null && (
+                      <Grid size={{ xs: 6, sm: 3 }}>
+                        <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.audioCodec')}</Typography>
+                        <Typography variant="body2">{video.audioCodec}</Typography>
+                      </Grid>
+                    )}
+                    {video.bitRate != null && (
+                      <Grid size={{ xs: 6, sm: 3 }}>
+                        <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.bitRate')}</Typography>
+                        <Typography variant="body2">
+                          {video.bitRate >= 1_000_000
+                            ? `${(video.bitRate / 1_000_000).toFixed(1)} Mbps`
+                            : `${(video.bitRate / 1000).toFixed(0)} Kbps`}
+                        </Typography>
+                      </Grid>
+                    )}
+                    {video.frameRate != null && (
+                      <Grid size={{ xs: 6, sm: 3 }}>
+                        <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.frameRate')}</Typography>
+                        <Typography variant="body2">{video.frameRate} fps</Typography>
+                      </Grid>
+                    )}
+                  </>
+                )}
                 <Grid size={12} sx={{ mt: 0.5, display: 'flex', gap: 0.5 }}>
                   <IconButton
                     size="small"
@@ -990,11 +1041,6 @@ export default function VideoDetailPage() {
                     <Grid size={12}>
                       <TextField label={t('videoDetail.fields.tags')} fullWidth size="small" {...field('tags')}
                         helperText={t('videoDetail.commaSeparatedHint')} />
-                    </Grid>
-                  )}
-                  {isFieldVisible(fieldVis, 'runtime') && (
-                    <Grid size={{ xs: 6, sm: 4 }}>
-                      <TextField label={t('videoDetail.fields.runtime')} fullWidth size="small" type="number" {...field('runtime')} />
                     </Grid>
                   )}
                   {isFieldVisible(fieldVis, 'mpaa') && (
@@ -1168,12 +1214,6 @@ export default function VideoDetailPage() {
                           {video.tags.map((tag, i) => <Chip key={i} label={tag} size="small" variant="outlined" />)}
                         </Box>
                       ) : <Typography>—</Typography>}
-                    </Grid>
-                  )}
-                  {isFieldVisible(fieldVis, 'runtime') && (
-                    <Grid size={{ xs: 6, sm: 4 }}>
-                      <Typography variant="body2" color="text.secondary">{t('videoDetail.fields.runtime')}</Typography>
-                      <Typography>{video.runtime != null ? `${video.runtime} min` : '—'}</Typography>
                     </Grid>
                   )}
                   {isFieldVisible(fieldVis, 'mpaa') && (

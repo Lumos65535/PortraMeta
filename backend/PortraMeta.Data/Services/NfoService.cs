@@ -12,7 +12,7 @@ public class NfoService : INfoService
         "title", "originaltitle", "sorttitle", "ratings", "userrating", "top250",
         "outline", "plot", "tagline", "runtime", "mpaa", "uniqueid", "genre",
         "country", "credits", "director", "premiered", "year", "studio", "tag",
-        "set", "actor", "dateadded"
+        "set", "actor", "dateadded", "fileinfo"
     ];
 
     public async Task WriteAsync(string nfoPath, VideoFileDto video, CancellationToken ct = default)
@@ -135,6 +135,14 @@ public class NfoService : INfoService
             }
         }
 
+        // FileInfo (from mediainfo — read-only, written during scan)
+        root.Elements("fileinfo").Remove();
+        if (video.DurationSeconds is not null || video.VideoCodec is not null)
+        {
+            root.Add(BuildFileInfoElement(video.DurationSeconds, video.VideoCodec, video.AudioCodec,
+                video.Width, video.Height));
+        }
+
         // Reorder elements: known elements first in standard order, then unknown elements
         var knownSet = new HashSet<string>(KnownElements);
         var unknownElements = root.Elements()
@@ -172,5 +180,75 @@ public class NfoService : INfoService
             try { File.Delete(tmpPath); } catch { /* best-effort cleanup */ }
             throw;
         }
+    }
+
+    public async Task WriteFileInfoAsync(string nfoPath, MediaInfoResult mediaInfo, CancellationToken ct = default)
+    {
+        if (!File.Exists(nfoPath)) return;
+
+        XElement root;
+        try
+        {
+            var existing = await File.ReadAllTextAsync(nfoPath, ct);
+            var xmlSettings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit };
+            using var xmlReader = XmlReader.Create(new StringReader(existing), xmlSettings);
+            var existingDoc = XDocument.Load(xmlReader);
+            root = existingDoc.Root ?? new XElement("movie");
+            if (root.Name.LocalName != "movie") return;
+        }
+        catch
+        {
+            return;
+        }
+
+        root.Elements("fileinfo").Remove();
+        root.Add(BuildFileInfoElement(mediaInfo.DurationSeconds, mediaInfo.VideoCodec,
+            mediaInfo.AudioCodec, mediaInfo.Width, mediaInfo.Height));
+
+        var doc = new XDocument(
+            new XDeclaration("1.0", "UTF-8", "yes"),
+            root
+        );
+
+        var tmpPath = nfoPath + ".tmp";
+        try
+        {
+            await using (var stream = File.Open(tmpPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await doc.SaveAsync(stream, SaveOptions.None, ct);
+            }
+            File.Move(tmpPath, nfoPath, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tmpPath); } catch { /* best-effort cleanup */ }
+            throw;
+        }
+    }
+
+    private static XElement BuildFileInfoElement(
+        double? durationSeconds, string? videoCodec, string? audioCodec,
+        int? width, int? height)
+    {
+        var videoEl = new XElement("video");
+        if (videoCodec is not null) videoEl.Add(new XElement("codec", videoCodec));
+        if (width is not null && height is not null)
+        {
+            var aspect = height > 0 ? Math.Round((double)width.Value / height.Value, 2) : 0;
+            videoEl.Add(new XElement("aspect", aspect));
+            videoEl.Add(new XElement("width", width));
+            videoEl.Add(new XElement("height", height));
+        }
+        if (durationSeconds is not null)
+            videoEl.Add(new XElement("durationinseconds", (int)Math.Round(durationSeconds.Value)));
+        videoEl.Add(new XElement("stereomode"));
+
+        var audioEl = new XElement("audio");
+        if (audioCodec is not null) audioEl.Add(new XElement("codec", audioCodec));
+        audioEl.Add(new XElement("language"));
+        audioEl.Add(new XElement("channels"));
+
+        return new XElement("fileinfo",
+            new XElement("streamdetails", videoEl, audioEl));
     }
 }

@@ -86,7 +86,8 @@
       "directors": "Director",
       "genres": "Genre",
       "tags": "Tags",
-      "runtime": "Runtime",
+      "durationHMS": "Duration (H:M:S)",
+      "durationMS": "Duration (M:S)",
       "mpaa": "Content Rating",
       "premiered": "Premiered",
       "userRating": "User Rating",
@@ -96,7 +97,11 @@
       "setName": "Collection",
       "dateAdded": "Date Added",
       "scannedAt": "Scanned At",
-      "fileModifiedAt": "File Date"
+      "fileModifiedAt": "File Date",
+      "videoCodec": "Video Codec",
+      "audioCodec": "Audio Codec",
+      "resolution": "Resolution",
+      "bitRate": "Bitrate"
     }
   },
   "videoDetail": {
@@ -166,6 +171,12 @@
       "nfo": "NFO",
       "poster": "Poster",
       "fanart": "Fanart",
+      "duration": "Duration",
+      "resolution": "Resolution",
+      "videoCodec": "Video Codec",
+      "audioCodec": "Audio Codec",
+      "bitRate": "Bitrate",
+      "frameRate": "Frame Rate",
       "title": "Title",
       "year": "Year",
       "originalTitle": "Original Title",
@@ -173,7 +184,6 @@
       "plot": "Plot",
       "directors": "Director",
       "genres": "Genre",
-      "runtime": "Runtime",
       "mpaa": "Content Rating",
       "premiered": "Premiered",
       "ratings": "Ratings",

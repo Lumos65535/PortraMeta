@@ -52,6 +52,14 @@ export interface VideoFile {
   setName: string | null;
   dateAdded: string | null;
   top250: number | null;
+  // Media info
+  durationSeconds: number | null;
+  videoCodec: string | null;
+  audioCodec: string | null;
+  width: number | null;
+  height: number | null;
+  frameRate: number | null;
+  bitRate: number | null;
 }
 
 export interface PagedResult<T> {
@@ -105,7 +113,6 @@ export interface UpdateVideoRequest {
   // Tier 1
   directors?: string[] | null;
   genres?: string[] | null;
-  runtime?: number | null;
   mpaa?: string | null;
   premiered?: string | null;
   ratings?: RatingRequest[] | null;
@@ -133,7 +140,6 @@ export interface BatchUpdateRequest {
   studioName?: string | null;
   directors?: string[] | null;
   genres?: string[] | null;
-  runtime?: number | null;
   mpaa?: string | null;
   premiered?: string | null;
   userRating?: number | null;

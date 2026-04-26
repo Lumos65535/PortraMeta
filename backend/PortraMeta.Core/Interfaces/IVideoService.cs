@@ -43,7 +43,15 @@ public record VideoFileDto(
     // Tier 3
     string? SetName = null,
     string? DateAdded = null,
-    int? Top250 = null
+    int? Top250 = null,
+    // Media info
+    double? DurationSeconds = null,
+    string? VideoCodec = null,
+    string? AudioCodec = null,
+    int? Width = null,
+    int? Height = null,
+    double? FrameRate = null,
+    long? BitRate = null
 );
 
 public record VideoFileFilter(
@@ -75,7 +83,6 @@ public record UpdateVideoRequest(
     // Tier 1
     IReadOnlyList<string>? Directors = null,
     IReadOnlyList<string>? Genres = null,
-    int? Runtime = null,
     string? Mpaa = null,
     string? Premiered = null,
     IReadOnlyList<RatingRequest>? Ratings = null,
@@ -105,7 +112,6 @@ public record BatchUpdateVideoRequest(
     string? StudioName = null,
     IReadOnlyList<string>? Directors = null,
     IReadOnlyList<string>? Genres = null,
-    int? Runtime = null,
     string? Mpaa = null,
     string? Premiered = null,
     int? UserRating = null,
