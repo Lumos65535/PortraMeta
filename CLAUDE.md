@@ -19,15 +19,17 @@ A local video metadata management tool that generates NFO files and portrait-ori
 portrameta/
 ├── backend/
 │   ├── PortraMeta.Api/          # Web API entry point, Controllers, Program.cs
-│   ├── PortraMeta.Core/         # Interface definitions (ILibraryService, IVideoService, INfoParser, INfoService), Models (Result<T>, PagedResult<T>), DTOs
-│   ├── PortraMeta.Data/         # EF Core DbContext, Entities, Migrations, Service implementations, NfoParser, NfoService, FileSystemScanner
-│   └── PortraMeta.Tests/        # xUnit unit tests (to be implemented)
+│   ├── PortraMeta.Core/         # Interface definitions (ILibraryService, IVideoService, INfoParser, INfoService, IMediaInfoService), Models (Result<T>, PagedResult<T>), DTOs, Constants (VideoFormats)
+│   ├── PortraMeta.Data/         # EF Core DbContext, Entities, Migrations, Service implementations (incl. MediaInfoService), NfoParser, NfoService, Utilities (FileSystemScanner)
+│   └── PortraMeta.Tests/        # xUnit unit tests (services, parsers, scanner, middleware; NSubstitute for mocking)
 ├── frontend/
 │   ├── src/
 │   │   ├── api/               # axios client (client.ts), librariesApi, videosApi
-│   │   ├── contexts/          # NotifyContext (global Snackbar notifications)
+│   │   ├── contexts/          # NotifyContext (global Snackbar notifications), ThemeModeContext
+│   │   ├── hooks/             # useKeyboardShortcuts
 │   │   ├── i18n/              # react-i18next config (index.ts), translation files (zh.json, en.json)
 │   │   ├── pages/             # LibrariesPage, VideosPage, VideoDetailPage, SettingsPage
+│   │   ├── utils/             # shortcuts.ts, filename.ts, fieldVisibility.ts
 │   │   └── App.tsx            # BrowserRouter + Layout + Routes
 │   └── package.json
 ├── docker-compose.yml
@@ -135,6 +137,12 @@ Fanart naming: `{videofile}-fanart.jpg` (landscape, optional)
 - Filter parameters: `?has_nfo=false&has_poster=false&studio_id=1`
 - Video update: `PUT /api/videos/{id}`, writes both SQLite + NFO file
 - Batch video update: `PUT /api/videos/batch`, writes SQLite + NFO for each video
+- Batch delete: `POST /api/videos/batch/delete` (metadata only, video file, or both)
+- Poster/fanart upload: `POST /api/videos/{id}/poster`, `POST /api/videos/{id}/fanart` (multipart, max 10 MB); preview via `GET` on the same paths
+- Poster/fanart import from disk path: `POST /api/videos/{id}/poster/from-path`, `POST /api/videos/{id}/fanart/from-path`
+- Reveal in file manager / open in player: `POST /api/videos/{id}/reveal`, `POST /api/videos/{id}/open`
+- Filter options for advanced search: `GET /api/videos/filter-options`
+- Scan progress: `GET /api/libraries/{id}/scan-status` (polled by the frontend during a scan)
 - Get subdirectories: `GET /api/libraries/{id}/subdirectories` (for excluded folder UI browsing)
 - Excluded folder management: `GET /api/libraries/{id}/excluded-folders`, `PUT /api/libraries/{id}/excluded-folders`
 
@@ -222,7 +230,7 @@ The current backend architecture is ready for multi-platform access — **no bac
 | 2 | Pending | Tauri project + embedded backend subprocess (macOS) |
 | 3 | Pending | Windows installer packaging (same Tauri codebase) |
 
-## Current Development Status (2026-04-01)
+## Current Development Status (2026-06-10)
 
 Completed:
 1. ✅ Project scaffolding (Docker + .NET + React running)
@@ -244,12 +252,19 @@ Completed:
 17. ✅ Column menu button pinned to top-right corner of DataGrid (no longer scrolls with columns)
 
 18. ✅ Keyboard shortcuts for VideoDetailPage (navigation, edit, actor operations) with extensible ShortcutMap architecture
+19. ✅ Advanced search with specialized filter controls (Studio, Collection, Year Range) — see Advanced Search Plan below
+20. ✅ MediaInfo-based metadata extraction (`MediaInfoService` invokes the `mediainfo` CLI; 7 nullable columns on `VideoFiles`: DurationSeconds, VideoCodec, AudioCodec, Width, Height, FrameRate, BitRate; parallel probing during scan; `<fileinfo>` written to NFO; auto-probe on save when missing)
+21. ✅ Real-time scan progress (`GET /api/libraries/{id}/scan-status` polled at 500 ms by LibrariesPage; phases: enumerating/probing/processing; progress kept in an in-memory `ConcurrentDictionary`)
+22. ✅ Batch delete (`POST /api/videos/batch/delete`: metadata only, video file, or both)
+23. ✅ Reveal in file manager / open in default player (`POST /api/videos/{id}/reveal`, `POST /api/videos/{id}/open`; cross-platform)
+24. ✅ Poster/fanart import from disk path (`POST /api/videos/{id}/poster/from-path`, `/fanart/from-path`)
+25. ✅ Test suites + CI: backend xUnit tests (services, NFO parser/writer, scanner, API key middleware; NSubstitute), frontend vitest tests (api client, i18n parity, contexts, utils), GitHub Actions workflow (`.github/workflows/ci.yml`) running both on push/PR to main
+26. ✅ Case-insensitive search (NOCASE collation on FileName/Title/OriginalTitle/Plot/Studio.Name via migration, enforced in `AppDbContext`)
 
 Pending:
-19. ✅ Advanced search with specialized filter controls (Studio, Collection, Year Range) — see Advanced Search Plan below
-20. Settings page shortcut customization (see Keyboard Shortcuts section)
-21. Scraper interface stub `/api/scrapers` (not yet implemented)
-22. Tauri desktop client packaging (macOS / Windows)
+27. Settings page shortcut customization (see Keyboard Shortcuts section)
+28. Scraper interface stub `/api/scrapers` (not yet implemented)
+29. Tauri desktop client packaging (macOS / Windows)
 
 ## Advanced Search Plan
 
@@ -326,8 +341,9 @@ Keyboard shortcuts are implemented in VideoDetailPage via a data-driven shortcut
 ## Known Limitations
 
 - `Actor.AvatarPath`, `Actor.Aliases`, `Studio.LogoPath` fields are defined in entities but not yet exposed in the API or frontend
-- Search is case-sensitive (SQLite `LIKE` default behavior)
 - Individual video files cannot be re-scanned independently (only the entire library can be scanned)
+- Scan progress state is in-memory only; it is lost on backend restart
+- MediaInfo extraction is silently disabled when the `mediainfo` CLI is not on PATH (it is installed in the Docker image; install it manually for local development)
 
 ## Plugin System Plan (Pending)
 
@@ -512,10 +528,5 @@ Response: {
 
 ---
 
-### VideoDetailPage — FileInfo Section Extension
-The current FileInfo section only displays path, size, scan time, and NFO/Poster/Fanart status.
-Planned additions (requires backend to parse and store during scan):
-- Resolution (e.g., 1920×1080)
-- Video codec (e.g., H.264, HEVC)
-- Audio codec (e.g., AAC, DTS)
-- Frame rate, duration, and other technical parameters
+### VideoDetailPage — FileInfo Section Extension (Implemented)
+Implemented via MediaInfo-based metadata extraction (see Current Development Status). The FileInfo section now covers path, size, scan time, NFO/Poster/Fanart status, plus resolution, video/audio codec, frame rate, duration, and bit rate parsed by `MediaInfoService` during scan (and on save when missing).
