@@ -10,6 +10,8 @@ public class MediaInfoService(ILogger<MediaInfoService> logger) : IMediaInfoServ
 {
     private bool? _available;
 
+    internal string ExecutableName { get; init; } = "mediainfo";
+
     public async Task<MediaInfoResult?> ProbeAsync(string filePath, CancellationToken ct = default)
     {
         if (_available == false) return null;
@@ -20,7 +22,7 @@ public class MediaInfoService(ILogger<MediaInfoService> logger) : IMediaInfoServ
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "mediainfo",
+                    FileName = ExecutableName,
                     ArgumentList = { "--Output=JSON", filePath },
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -68,7 +70,7 @@ public class MediaInfoService(ILogger<MediaInfoService> logger) : IMediaInfoServ
         }
     }
 
-    private MediaInfoResult? ParseOutput(string json, string filePath)
+    internal MediaInfoResult? ParseOutput(string json, string filePath)
     {
         try
         {
