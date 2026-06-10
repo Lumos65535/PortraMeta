@@ -18,13 +18,7 @@ import { cleanForSearch } from '../utils/filename';
 import { getFieldVisibility, isFieldVisible } from '../utils/fieldVisibility';
 import type { FieldVisibility } from '../utils/fieldVisibility';
 import { formatAction } from '../utils/shortcuts';
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
+import { formatBytes, splitComma } from '../utils/format';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
@@ -98,11 +92,6 @@ function toEditState(v: VideoFile): EditState {
     dateAdded: v.dateAdded ?? '',
     top250: v.top250?.toString() ?? '',
   };
-}
-
-function splitComma(s: string): string[] | null {
-  const items = s.split(',').map(x => x.trim()).filter(Boolean);
-  return items.length > 0 ? items : null;
 }
 
 // ── Upload Dialog ─────────────────────────────────────────────────────────────

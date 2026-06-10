@@ -23,6 +23,7 @@ import type { AdvancedFilterItem, BatchUpdateRequest, DeleteMode, PagedResult, V
 import { useNotify } from '../contexts/NotifyContext';
 import { getFieldLabelKey, getFieldVisibility, isFieldVisible } from '../utils/fieldVisibility';
 import type { FieldVisibility } from '../utils/fieldVisibility';
+import { formatBytes, splitComma } from '../utils/format';
 
 const PAGE_SIZE = 50;
 const STORAGE_KEY = 'portrameta_videos_grid_v1';
@@ -98,13 +99,6 @@ const COLUMN_DEFAULT_WIDTHS: Record<string, number> = {
   resolution: 140,
   bitRate: 120,
 };
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
 
 const FONT_SIZE_MAP: Record<string, number> = { small: 18, medium: 20, large: 28 };
 
@@ -271,11 +265,6 @@ const BATCH_FIELDS: BatchField[] = [
   { key: 'tagline', type: 'text' },
   { key: 'plot', type: 'multiline', rows: 3 },
 ];
-
-function splitComma(s: string): string[] | null {
-  const items = s.split(',').map(x => x.trim()).filter(Boolean);
-  return items.length > 0 ? items : null;
-}
 
 interface BatchEditDialogProps {
   open: boolean;
