@@ -19,9 +19,9 @@ A local video metadata management tool that generates NFO files and portrait-ori
 portrameta/
 ├── backend/
 │   ├── PortraMeta.Api/          # Web API entry point, Controllers, Program.cs
-│   ├── PortraMeta.Core/         # Interface definitions (ILibraryService, IVideoService, INfoParser, INfoService, IMediaInfoService), Models (Result<T>, PagedResult<T>), DTOs, Constants (VideoFormats)
-│   ├── PortraMeta.Data/         # EF Core DbContext, Entities, Migrations, Service implementations (incl. MediaInfoService), NfoParser, NfoService, Utilities (FileSystemScanner)
-│   └── PortraMeta.Tests/        # xUnit unit tests (services, parsers, scanner, middleware; NSubstitute for mocking)
+│   ├── PortraMeta.Core/         # Interface definitions (ILibraryService, IVideoService, INfoParser, INfoService, IMediaInfoService), Models (Result<T>, PagedResult<T>), Constants (VideoFormats); DTOs are C# records defined in the same files as their interfaces (e.g. VideoFileDto in IVideoService.cs) — there is no separate DTOs folder
+│   ├── PortraMeta.Data/         # EF Core DbContext, Entities, Migrations, Services/ (LibraryService, VideoService, NfoParser, NfoService, MediaInfoService), Utilities (FileSystemScanner)
+│   └── PortraMeta.Tests/        # xUnit unit tests (services, MediaInfo, parsers, scanner, middleware; NSubstitute for mocking)
 ├── frontend/
 │   ├── src/
 │   │   ├── api/               # axios client (client.ts), librariesApi, videosApi
@@ -29,9 +29,11 @@ portrameta/
 │   │   ├── hooks/             # useKeyboardShortcuts
 │   │   ├── i18n/              # react-i18next config (index.ts), translation files (zh.json, en.json)
 │   │   ├── pages/             # LibrariesPage, VideosPage, VideoDetailPage, SettingsPage
-│   │   ├── utils/             # shortcuts.ts, filename.ts, fieldVisibility.ts
+│   │   ├── utils/             # shortcuts.ts, filename.ts, fieldVisibility.ts, format.ts (formatBytes/splitComma)
 │   │   └── App.tsx            # BrowserRouter + Layout + Routes
 │   └── package.json
+├── docs/                        # API.md (REST API reference), CONTRIBUTING.md
+├── .github/workflows/ci.yml     # CI: backend dotnet build+test, frontend build+vitest
 ├── docker-compose.yml
 └── CLAUDE.md
 ```
@@ -41,18 +43,23 @@ portrameta/
 ```bash
 # Backend
 cd backend
-dotnet run --project PortraMeta.Api          # Start API (port 5000)
-dotnet test                                # Run tests
+dotnet run --project PortraMeta.Api          # Start API (local dev: port 5001, Swagger UI at /swagger)
+dotnet test                                # Run all tests
+dotnet test --filter "FullyQualifiedName~VideoServiceTests"   # Run a single test class
 dotnet ef migrations add <Name> --project PortraMeta.Data --startup-project PortraMeta.Api
 dotnet ef database update --project PortraMeta.Data --startup-project PortraMeta.Api
+# Note: migrations are also applied automatically on startup (MigrateAsync in Program.cs)
 
 # Frontend
 cd frontend
 npm run dev                                # Start dev server (port 3000)
-npm run build                              # Production build
+npm run build                              # Production build (tsc -b + vite build)
+npm run lint                               # ESLint
+npm test                                   # Run vitest once (test:watch for watch mode)
+npx vitest run src/utils/__tests__/format.test.ts   # Run a single test file
 
 # Docker
-docker compose up --build                  # Build and start
+docker compose up --build                  # Build and start (backend exposed on port 5000)
 docker compose down                        # Stop
 ```
 
@@ -132,6 +139,8 @@ Fanart naming: `{videofile}-fanart.jpg` (landscape, optional)
 
 ## API Standards
 
+Full endpoint reference: `docs/API.md`; interactive Swagger UI at `/swagger` when the server is running.
+
 - Base path: `/api/`
 - Pagination parameters: `?page=1&page_size=50`
 - Filter parameters: `?has_nfo=false&has_poster=false&studio_id=1`
@@ -155,6 +164,12 @@ Fanart naming: `{videofile}-fanart.jpg` (landscape, optional)
 - `/settings` → settings (language switching, etc.)
 
 ## Backend Configuration
+
+### Ports
+
+- Local dev: API listens on port **5001** (`Urls` in `appsettings.json`); the Vite dev server (port 3000) proxies `/api` to `http://localhost:5001` (see `vite.config.ts`), so axios uses relative URLs in dev
+- Production builds: the API base URL is baked in at build time via `VITE_API_URL` (see `frontend/src/api/client.ts`)
+- Docker: backend published on port **5000**, frontend on port **3000**
 
 ### CORS Configuration
 
@@ -230,7 +245,7 @@ The current backend architecture is ready for multi-platform access — **no bac
 | 2 | Pending | Tauri project + embedded backend subprocess (macOS) |
 | 3 | Pending | Windows installer packaging (same Tauri codebase) |
 
-## Current Development Status (2026-06-10)
+## Current Development Status (2026-07-04)
 
 Completed:
 1. ✅ Project scaffolding (Docker + .NET + React running)
@@ -258,7 +273,7 @@ Completed:
 22. ✅ Batch delete (`POST /api/videos/batch/delete`: metadata only, video file, or both)
 23. ✅ Reveal in file manager / open in default player (`POST /api/videos/{id}/reveal`, `POST /api/videos/{id}/open`; cross-platform)
 24. ✅ Poster/fanart import from disk path (`POST /api/videos/{id}/poster/from-path`, `/fanart/from-path`)
-25. ✅ Test suites + CI: backend xUnit tests (services, NFO parser/writer, scanner, API key middleware; NSubstitute), frontend vitest tests (api client, i18n parity, contexts, utils), GitHub Actions workflow (`.github/workflows/ci.yml`) running both on push/PR to main
+25. ✅ Test suites + CI: backend xUnit tests (services incl. MediaInfoService, NFO parser/writer, scanner, API key middleware; NSubstitute), frontend vitest tests (api client, i18n parity, contexts, utils), GitHub Actions workflow (`.github/workflows/ci.yml`) running both on push/PR to main
 26. ✅ Case-insensitive search (NOCASE collation on FileName/Title/OriginalTitle/Plot/Studio.Name via migration, enforced in `AppDbContext`)
 
 Pending:
